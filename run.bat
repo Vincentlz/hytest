@@ -1,1 +1,1 @@
-python -m hytest.run %*
+python -m hytest %*

@@ -129,13 +129,13 @@ class Stats:
 
     # utype 可能是 suite  case  case_default     
     def setup_fail(self,name, utype, e, stacktrace):  
-        if utype == 'suite':
+        if utype.startswith('suite'):
             self.result['suite_setup_fail'] += 1   
         else:
             self.result['case_setup_fail'] += 1 
     
     def teardown_fail(self,name, utype, e, stacktrace):  
-        if utype == 'suite':
+        if utype.startswith('suite'):
             self.result['suite_teardown_fail'] += 1   
         else:
             self.result['case_teardown_fail'] += 1 
@@ -216,20 +216,20 @@ class ConsoleLogger:
 
 
     
-    def setup(self,name, utype):...
+    def setup_begin(self,name, utype):...
     
     
-    def teardown(self,name, utype):...
+    def teardown_begin(self,name, utype):...
 
     # utype 可能是 suite  case  case_default
     def setup_fail(self,name, utype, e, stacktrace): 
-        utype =  ('套件','suite')[l.n] if utype == 'suite' else ('用例','case')[l.n]
+        utype =  ('套件','suite')[l.n] if utype.startswith('suite') else ('用例','case')[l.n]
         print(f"\n{utype} {('初始化失败','setup failed')[l.n]} | {name} | {e}",style='bright_red')
         # print(f'\n{utype} setup fail | {name} | {e}',style='bright_red')
 
     
     def teardown_fail(self,name, utype, e, stacktrace):      
-        utype =  ('套件','suite')[l.n] if utype == 'suite' else ('用例','case')[l.n]
+        utype =  ('套件','suite')[l.n] if utype.startswith('suite') else ('用例','case')[l.n]
         print(f"\n{utype} {('清除失败','teardown failed')[l.n]} | {name} | {e}", style='bright_red')
         # print(f'\n{utype} teardown fail | {name} | {e}',style='bright_red')
 
@@ -311,20 +311,21 @@ class TextLogger:
         if case.execRet == 'pass':
             logger.info('  PASS ')
         else:
-            stacktrace = "Traceback:\n" +case.stacktrace.split("\n",3)[3]
-            if case.execRet == 'fail':
-                logger.info(f'  FAIL   {case.error} \n{stacktrace}')
+            if case.execRet == 'fail':                    
+                logger.info(f'  FAIL   {case.error} \n{case.stacktrace}')
+
+
             elif case.execRet == 'abort':
-                logger.info(f'  ABORT   {case.error} \n{stacktrace}')
+                logger.info(f'  ABORT   {case.error} \n{case.stacktrace}')
 
 
 
     
-    def setup(self,name, utype): 
+    def setup_begin(self,name, utype): 
         logger.info(f'\n[ {utype} setup ] {name}')
     
     
-    def teardown(self,name, utype): 
+    def teardown_begin(self,name, utype): 
         logger.info(f'\n[ {utype} teardown ] {name}')
 
     
@@ -383,19 +384,26 @@ class HtmlLogger:
 
     def __init__(self):
         self.curEle = None
+        # 保存一个  用例文件名 -> htmlDiv对象 的表，因为执行到用例文件清除的时候，要在 用例文件Div对象里面添加 该文件teardown的子节点Div
+        self.suiteFileName2DivTable = {}
         
     def test_start(self,_title=''):
+        libDir = os.path.dirname(__file__)
         # css file
-        with open(os.path.join(os.path.dirname(__file__) , 'report.css'), encoding='utf8') as f:
+        with open(os.path.join(libDir , 'report.css'), encoding='utf8') as f:
             _css_style = f.read()
         # js file
-        with open(os.path.join(os.path.dirname(__file__) , 'report.js'), encoding='utf8') as f:
+        with open(os.path.join(libDir , 'report.js'), encoding='utf8') as f:
             _js = f.read()
 
+        # icon file
+        
 
         self.doc = document(title= Settings.report_title)
         self.doc.head.add(
                         meta(charset="UTF-8"),
+                        meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+                        link(rel='icon', type="image/png" , href=os.path.join(libDir, 'icon.png')),
                         style(raw(_css_style)),
                         script(raw(_js), type='text/javascript'))
 
@@ -639,16 +647,19 @@ class HtmlLogger:
     #             cur = os.path.join(cur,level)
             
 
-    
+    # 进入用例目录 或者 用例文件
     def enter_suite(self,name:str,suitetype): 
         _class = 'suite_'+suitetype
 
-        enterInfo = ('进入目录','Enter Folder')[l.n] if suitetype == 'dir' else ('进入文件','Enter File')[l.n]
+        enterInfo = ('进入目录','Enter Folder')[l.n] if suitetype == 'dir' \
+                else ('进入文件','Enter File')[l.n]
+        
         self.curEle = self.logDiv.add(
             div(                
                 div(
                     span(enterInfo,_class='label'),
-                    span(name)
+                    span(name),
+                    _class='enter_suite'
                 ),         
                 _class=_class, id=f'{_class} {name}'
             )
@@ -667,12 +678,16 @@ class HtmlLogger:
         self.curCaseBodyEle = div(
             span(f'{self.curSuiteFilePath}::{case_className}', _class='case_class_path') , 
             _class='folder_body')
+        
+        self.caseDurationSpan = span("", _class='duration')
+
         self.curCaseEle = self.curSuiteEle.add(
             div(
                 div(
                     self.curCaseLableEle,
                     span(name, _class='casename'),
-                    span(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), _class='executetime'),
+                    span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
+                    self.caseDurationSpan,
                     _class='folder_header'
                 ),
                 self.curCaseBodyEle ,
@@ -681,11 +696,19 @@ class HtmlLogger:
         )
         self.curEle = self.curCaseBodyEle
 
+    def leave_case(self, caseId, duration):
+        self.caseDurationSpan += f"{round(duration,1)}s"
     
     def case_steps(self,name):          
+        self.stepsDurationSpan = span("", _class='duration')
         ele = div(
-            span(('测试步骤','Test Steps')[l.n],_class='label'),
-            _class='test_steps',id='test_steps '+name)        
+                div(
+                    span(('测试步骤','Test Steps')[l.n],_class='label'),
+                    self.stepsDurationSpan,
+                    _class="flow-space-between",
+                ),            
+            _class='test_steps',id='test_steps '+name)    
+        
         self.curEle = self.curCaseBodyEle.add(ele)
 
     
@@ -711,48 +734,48 @@ class HtmlLogger:
     #     self.curEle += div(f'{e} \n{stacktrace}', _class='info error-info')
 
 
-    def case_result(self,case):
+    def case_result(self, case):
         if case.execRet == 'pass':
             self.curCaseEle['class'] += ' pass'
-            self.curCaseLableEle += ' PASS'
-        else:
-            # Traceback 前3行信息多余， 不要
-            stacktrace = "Traceback:\n" +case.stacktrace.split("\n",3)[3]
-            if case.execRet == 'fail':
-                # 如果 Traceback 后3行信息固定的是 common.py 里面的 AssertionError ，也多余， 不要
-                if ', in CHECK_POINT' in  stacktrace:
-                    stacktrace = stacktrace.rsplit("\n",4)[0]
-                self.curCaseEle['class'] += ' fail'
-                self.curCaseLableEle += ' FAIL'
-                self.curEle += div(f'{case.error} \n{stacktrace}', _class='info error-info')
-                
-            elif case.execRet == 'abort':                
-                self.curCaseEle['class'] += ' abort'
-                self.curCaseLableEle += ' ABORT'
+            self.curCaseLableEle += ' ✅'
 
-                self.curEle += div(f'{case.error} \n{stacktrace}', _class='info error-info')
+        elif case.execRet == 'fail':
+            self.curCaseEle['class'] += ' fail'
+            self.curCaseLableEle += ' ❌'
+            self.curEle += div(f'{case.error} \n{case.stacktrace}', _class='info error-info')
+            
+        elif case.execRet == 'abort':                
+            self.curCaseEle['class'] += ' abort'
+            self.curCaseLableEle += ' 🚫'
 
+            self.curEle += div(f'{case.error} \n{case.stacktrace}', _class='info error-info')
 
+        self.stepsDurationSpan += f"{round(case._steps_duration,1)}s"
             
     # utype 可能是 suite  case  case_default
-    def setup(self,name, utype): 
-
+    def setup_begin(self,name, utype): 
+        
         _class = f'{utype}_setup setup'
+
+        self.setupDurationSpan = span("", _class='duration')
                      
         # 套件 setup
-        if utype == 'suite':
+        if utype.startswith('suite_'):
             
             # folder_body 是折叠区 内容部分，可以隐藏
-            stHeaderEle = div(
+            suiteHeaderEle = div(
                 span(('套件初始化','Suite Setup')[l.n],_class='label'),
                 span(name),
-                span(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), _class='executetime'),
+                span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
+                self.setupDurationSpan,
                 _class='folder_header')
+            
+            self.curSuiteHeaderEle = suiteHeaderEle
             
             stBodyEle = self.curEle = div(_class='folder_body')
             
             self.curSetupEle = div(
-                stHeaderEle,
+                suiteHeaderEle,
                 stBodyEle,
                 _class=_class,
                 id=f'{_class} {name}')   
@@ -763,33 +786,63 @@ class HtmlLogger:
         else:
             
             self.curSetupEle = self.curEle = div(
-                span(('用例初始化','Case Setup')[l.n],_class='label'),
+                div(
+                    span(('用例初始化','Case Setup')[l.n],_class='label'),
+                    self.setupDurationSpan,
+                    _class="flow-space-between",
+                ),
                 _class=_class,
                 id=f'{_class} {name}')   
 
             self.curCaseBodyEle.add(self.curSetupEle)
             self.curEle['class'] += ' case_st_lable'
     
+            
+    # utype 可能是 suite  case  case_default
+    def setup_end(self, name, utype, duration): 
+
+        self.setupDurationSpan += f"{round(duration,1)}s"
+
+
+
         
     # utype 可能是 suite  case  case_default
-    def teardown(self,name, utype): 
+    def teardown_begin(self,name, utype): 
 
         _class = f'{utype}_teardown teardown'
 
+        self.teardownDurationSpan = span("", _class='duration')
+
         # 套件 teardown
-        if utype == 'suite':    
+        if utype.startswith('suite_'):    
+
+            # 是套件目录的清除，创建新的 curSuiteEle
+            if utype == 'suite_dir':
+                        
+                self.curEle = self.logDiv.add(
+                    div(                
+                        div(
+                            span(('离开目录','Leave Folder')[l.n] ,_class='label'),
+                            span(name),
+                            _class='leave_suite'
+                        ),         
+                        _class="suite_dir", id=f'{_class} {name}'
+                    )
+                )
+                self.curSuiteEle = self.curEle
             
             # folder_body 是折叠区 内容部分，可以隐藏
-            stHeaderEle = div(
+            suiteHeaderEle = div(
                 span(('套件清除','Suite Teardown')[l.n],_class='label'),
                 span(name),
-                span(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), _class='executetime'),
+                span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
+                self.teardownDurationSpan,
                 _class='folder_header')
             
             stBodyEle = self.curEle = div(_class='folder_body')
             
             self.curTeardownEle = div(
-                stHeaderEle,
+                suiteHeaderEle,
                 stBodyEle,
                 _class=_class,
                 id=f'{_class} {name}')   
@@ -798,14 +851,21 @@ class HtmlLogger:
 
         # 用例 teardown
         else:            
-            self.curTeardownEle = self.curEle = div(
-                span(('用例清除','Case Teardown')[l.n],_class='label'),
+            self.curTeardownEle = self.curEle = div(                
+                div(
+                    span(('用例清除','Case Teardown')[l.n],_class='label'),
+                    self.teardownDurationSpan,
+                    _class="flow-space-between",
+                ),
                 _class=_class,
                 id=f'{_class} {name}')       
 
             self.curCaseBodyEle.add(self.curTeardownEle)
             self.curEle['class'] += ' case_st_lable'
 
+    # utype 可能是 suite  case  case_default
+    def teardown_end(self, name, utype, duration): 
+        self.teardownDurationSpan += f"{round(duration,1)}s"
 
     
     def setup_fail(self,name, utype, e, stacktrace):  
@@ -838,13 +898,17 @@ class HtmlLogger:
         if self.curEle is None:
             return
 
-        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} PASS', _class='tag'), span(desc), _class='checkpoint_pass')
+        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} ✅', _class='tag'), 
+                           span(desc, _class='paragraph' ), 
+                           _class='checkpoint_pass')
         
     def checkpoint_fail(self, desc):
         if self.curEle is None:
             return
 
-        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} FAIL', _class='tag'), span(desc), _class='checkpoint_fail')
+        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} ❌', _class='tag'), 
+                           span(desc, _class='paragraph' ), 
+                           _class='checkpoint_fail')
 
 
     def log_img(self,imgPath: str, width: str = None):

@@ -1,4 +1,5 @@
-from hytest import STEP, INFO, CHECK_POINT
+import time
+from hytest import *
 
 def add_order(name):
     return {
@@ -22,10 +23,12 @@ force_tags = ['优先级1']
 
 
 def suite_setup():
+    INFO('功能1-套件初始化')
     pass
 
 
 def suite_teardown():
+    INFO('功能1-套件清除')
     pass
 
 
@@ -39,6 +42,7 @@ class c00001:
     # 用例的初始化
     def setup(self):
         INFO('添加订单')
+        time.sleep(1.1)
         ret = add_order('order name')
 
         # we could compare complicated data object easily,
@@ -55,6 +59,7 @@ class c00001:
     # 用例的清除
     def teardown(self):
         INFO('删除订单')
+        time.sleep(0.8)
         delete_order(self.orderid)
 
     # 测试用例 具体操作步骤
@@ -85,6 +90,16 @@ class c00002:
     def teardown(self):
         delete_order(1)
 
+
+class c00003:
+    name = '添加订单 - API-0003'
+
+    def teststeps(self):
+        a = 3/0
+        print(a)
+
+    def teardown(self):
+        delete_order(1)
 
 # 没有定义 name 属性， 类名就是 用例的名字
 class Test_function_3:
@@ -135,7 +150,7 @@ class c00003x:
         print(username, password)
         # 下面是登录测试代码
         if not password:
-            raise AssertionError(f'密码错误')
+            raise CheckPointFail(f'密码错误')
 
     def teardown(self):
         delete_order(1)

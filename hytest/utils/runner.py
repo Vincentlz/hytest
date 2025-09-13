@@ -1,3 +1,4 @@
+import time
 import os, types, importlib.util, fnmatch, traceback
 
 from .signal import signal
@@ -5,6 +6,8 @@ from .signal import signal
 from ..cfg import l
 
 
+class CheckPointFail(Exception): 
+    pass
 
 # 用例标签匹配，有一个满足即可
 def tagmatch(pattern):
@@ -475,13 +478,18 @@ class Runner:
                 # 找到 exec_table 中的对象执行 teardown
                 suite_teardown = Collector.exec_table[name]['suite_teardown']
                                 
-                signal.teardown(name,'suite')
+                signal.teardown_begin(name,'suite_dir')
+                begin_time = time.time()  
                 
                 try:
                     suite_teardown()
                 except Exception as e:
                     # 套件目录 清除失败
-                    signal.teardown_fail(name,'suite', e,traceback.format_exc())
+                    signal.teardown_fail(name,'suite_dir', e,traceback.format_exc())
+                    
+                end_time = time.time()
+                duration = end_time - begin_time                            
+                signal.teardown_end(name, 'suite_dir', duration)
 
 
             else:
@@ -495,15 +503,20 @@ class Runner:
                     suite_setup = meta.get('suite_setup')
                     
                     # 套件目录初始化
-                    if suite_setup:                        
-                        signal.setup(name,'suite')
-                        try:
-                            suite_setup()
+                    if suite_setup:                     
+                        signal.setup_begin(name,'suite_dir')
+                        begin_time = time.time()   
+                        try:                            
+                            suite_setup()  
                         except Exception as e:
                             # 套件目录 初始化失败,
-                            signal.setup_fail(name,'suite', e,traceback.format_exc())
+                            signal.setup_fail(name,'suite_dir', e,traceback.format_exc())
                             # 记录到 初始化失败目录列表 中， 该套件目录内容都不会再执行
                             suite_setup_failed_list.append(name)
+
+                        end_time = time.time()
+                        duration = end_time - begin_time 
+                        signal.setup_end(name, 'suite_dir', duration)
 
                 # 进入套件文件
                 elif meta['type'] == 'casefile': 
@@ -512,16 +525,23 @@ class Runner:
                     
                     # 套件文件 初始化
                     suite_setup = meta.get('suite_setup')
-                    if suite_setup:                        
-                        signal.setup(name,'suite')
-                        
-                        try:
+                    if suite_setup:                           
+                        signal.setup_begin(name,'suite_file') 
+                        begin_time = time.time()    
+                        try:                            
                             suite_setup()
                         except Exception as e:
                             # 套件文件 初始化失败 
-                            signal.setup_fail(name,'suite', e, traceback.format_exc())
+                            signal.setup_fail(name,'suite_file', e, traceback.format_exc())
+                            end_time = time.time()
+                            duration = end_time - begin_time                            
+                            signal.setup_end(name, 'suite_file', duration)
                             # 该套件文件内容都不会再执行
                             continue 
+                        
+                        end_time = time.time()
+                        duration = end_time - begin_time                            
+                        signal.setup_end(name, 'suite_file', duration)
 
                     # 执行套件文件里面的用例
                     cls._exec_cases(meta)
@@ -529,12 +549,17 @@ class Runner:
                     # 套件文件 清除
                     suite_teardown = meta.get('suite_teardown')
                     if suite_teardown:
-                        signal.teardown(name,'suite')                        
+                        signal.teardown_begin(name,'suite_file')   
+                        begin_time = time.time()                       
                         try:
                             suite_teardown()
                         except Exception as e:
                             # 套件文件 清除失败
-                            signal.teardown_fail(name, 'suite', e,traceback.format_exc())
+                            signal.teardown_fail(name, 'suite_file', e,traceback.format_exc())
+                            
+                        end_time = time.time()
+                        duration = end_time - begin_time                            
+                        signal.teardown_end(name, 'suite_file', duration)
 
 
     #  exec_list 中 找到 stName 对应的 teardown的地方插入 teardown记录
@@ -581,6 +606,8 @@ class Runner:
 
             # 用例 id 自动递增 分配， 这个id 主要是 作为 产生的HTML日志里面的html元素id
             cls.caseId += 1  
+
+            case._case_begin_time = time.time()
             signal.enter_case(cls.caseId, case.name, case_className)
             
             # 记录当前执行的case
@@ -588,61 +615,99 @@ class Runner:
             
             # 如果用例有 setup
             caseSetup = getattr(case,'setup',None)
+
+            setupFunc = None
             if caseSetup:
-                signal.setup(case.name,'case')
-                
-                try:
-                    caseSetup()
-                except Exception as e:
-                    signal.setup_fail(case.name, 'case', e, traceback.format_exc())
-                    continue # 初始化失败，这个用例的后续也不用执行了
-                
-            # 如果用例没有 setup，但是有缺省  test_setup
+                setupFunc = caseSetup
+                setupType = 'case'
             elif test_setup:
-                signal.setup(case.name,'case_default')                
-                try:
-                    test_setup()
-                except Exception as e:
-                    signal.setup_fail(case.name, 'case_default', e, traceback.format_exc())
-                    continue # 初始化失败，这个用例的后续也不用执行了
+                setupFunc = test_setup
+                setupType = 'case_default'
+
+            if setupFunc:
+                case._hytest_case_setup_begin_time = time.time()
+                signal.setup_begin(case.name, setupType)
                 
+                try:
+                    setupFunc()
+                    case._hytest_case_setup_end_time = time.time()
+                    case._setup_duration = case._hytest_case_setup_end_time - case._hytest_case_setup_begin_time
+                    signal.setup_end(case.name, setupType, case._setup_duration)
+                except Exception as e:
+                    signal.setup_fail(case.name, setupType, e, traceback.format_exc())
+                    continue # 初始化失败，这个用例的后续也不用执行了                
 
             signal.case_steps(case.name)
 
+            # 执行用例
             try:
                 # 先预设结果为通过，如果有检查点不通过，那里会设置为fail
                 case.execRet = 'pass'
+                
+                case._hytest_case_steps_begin_time = time.time()
                 case.teststeps()
-                signal.case_result(case) 
-            except AssertionError as e:   
+            
+            except CheckPointFail as e:   
                 case.execRet = 'fail'
                 case.error = e 
-                case.stacktrace = traceback.format_exc()
-                signal.case_result(case)            
+                
+                stacktrace = traceback.format_exc()                
+                
+                # Traceback 前3行信息多余， 不要
+                stacktrace = "Traceback:\n" + stacktrace.split("\n",3)[3] 
+               
+                # 如果 Traceback 后3行信息固定的是 common.py 里面的 CheckPointFail ，也多余， 不要
+                if ', in CHECK_POINT' in  stacktrace:
+                    stacktrace = stacktrace.rsplit("\n",4)[0]
+
+                case.stacktrace = stacktrace
+                   
             except Exception as e:  
                 case.execRet = 'abort'
                 case.error = e
-                case.stacktrace = traceback.format_exc()
-                signal.case_result(case)  
+
+                stacktrace = traceback.format_exc()                
+                
+                # Traceback 前3行信息多余， 不要
+                stacktrace = "Traceback:\n" + stacktrace.split("\n",3)[3] 
+
+                case.stacktrace = stacktrace
+
+
+            # 用例结果 通知 各日志模块            
+            case._hytest_case_steps_end_time = time.time()
+            case._steps_duration = case._hytest_case_steps_end_time - case._hytest_case_steps_begin_time
+            signal.case_result(case)  
                 
 
 
-
-            # 用例 teardown
+            # 用例 teardown            
             caseTeardown = getattr(case,'teardown',None)
+
+            teardownFunc = None
             if caseTeardown:
-                signal.teardown(case.name, 'case')
+                teardownFunc = caseTeardown
+                teardownType = 'case'
+            elif test_teardown: # 如果用例没有 teardown ，但是有缺省  test_teardown
+                teardownFunc = test_teardown
+                teardownType = 'case_default'
+                
+            if teardownFunc:
+                case._hytest_case_teardown_begin_time = time.time()
+                signal.teardown_begin(case.name, teardownType)
                 try:
-                    caseTeardown()   
+                    teardownFunc()   
+                    case._hytest_case_teardown_end_time = time.time()
+                    case._teardown_duration = case._hytest_case_teardown_end_time - case._hytest_case_teardown_begin_time
+                    signal.teardown_end(case.name, teardownType, case._teardown_duration)
                 except Exception as e:
-                    signal.teardown_fail(case.name, 'case', e,traceback.format_exc())
-            # 如果用例没有 teardown ，但是有缺省  test_teardown
-            elif test_teardown:
-                signal.teardown(case.name, 'case_default')                
-                try:
-                    test_teardown()   
-                except Exception as e:
-                    signal.teardown_fail(case.name, 'case_default', e,traceback.format_exc())
+                    signal.teardown_fail(case.name, teardownType, e,traceback.format_exc())
+           
+           
+            # 离开用例
+            case._case_end_time = time.time()
+            case._case_duration = case._case_end_time - case._case_begin_time
+            signal.leave_case(cls.caseId, duration=case._case_duration)
 
 
 if __name__ == '__main__':

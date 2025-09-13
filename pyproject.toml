@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hytest"
+version = "0.9.0"
+authors = [
+  {name = "baiyueheiyu 白月黑羽", email = "jcyrss@gmail.com"},
+]
+description = "A generic automation framework for QA testing"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.9"
+keywords = ["hytest", "automation", "testautomation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "rich",
+    "dominate",
+    "executing",
+]
+
+[project.urls]
+Homepage = "https://github.com/jcyrss/hytest"
+Download = "https://pypi.python.org/pypi/hytest"
+
+[project.scripts]
+hytest = "hytest.run:run"
+
+[tool.setuptools.packages.find]
+include = ["hytest*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.css", "*.js", "*.png", "*.ico"]

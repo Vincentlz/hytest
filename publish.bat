@@ -1,4 +1,7 @@
-del /S /Q  dist\*.*
-python setup.py bdist_wheel && twine upload dist/*
+rd /s /q  dist
+rd /s /q  build
+rd /s /q  hytest.egg-info
+
+python -m build && twine upload dist/*
 
 pause
