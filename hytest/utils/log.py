@@ -298,12 +298,10 @@ class TextLogger:
 
     
     # def case_fail(self, case, caseId, name, e, stacktrace):
-    #     stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
     #     logger.info(f'  FAIL   {e} \n{stacktrace}')
         
     
     # def case_abort(self, case, caseId, name, e, stacktrace):
-    #     stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
     #     logger.info(f'  ABORT   {e} \n{stacktrace}')
 
 
@@ -330,12 +328,10 @@ class TextLogger:
 
     
     def setup_fail(self,name, utype, e, stacktrace):  
-        stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]     
         logger.info(f'{utype} setup fail | {e} \n{stacktrace}')
 
     
     def teardown_fail(self,name, utype, e, stacktrace):  
-        stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]  
         logger.info(f'{utype} teardown fail | {e} \n{stacktrace}')
 
     
@@ -721,7 +717,6 @@ class HtmlLogger:
     #     self.curCaseEle['class'] += ' fail'
     #     self.curCaseLableEle += ' FAIL'
 
-    #     stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
     #     self.curEle += div(f'{e} \n{stacktrace}', _class='info error-info')
         
     
@@ -730,7 +725,6 @@ class HtmlLogger:
     #     self.curCaseEle['class'] += ' abort'
     #     self.curCaseLableEle += ' ABORT'
 
-    #     stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
     #     self.curEle += div(f'{e} \n{stacktrace}', _class='info error-info')
 
 
@@ -765,7 +759,7 @@ class HtmlLogger:
             # folder_body 是折叠区 内容部分，可以隐藏
             suiteHeaderEle = div(
                 span(('套件初始化','Suite Setup')[l.n],_class='label'),
-                span(name),
+                span(''),  #span(name),
                 span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
                 self.setupDurationSpan,
                 _class='folder_header')
@@ -834,7 +828,7 @@ class HtmlLogger:
             # folder_body 是折叠区 内容部分，可以隐藏
             suiteHeaderEle = div(
                 span(('套件清除','Suite Teardown')[l.n],_class='label'),
-                span(name),
+                span(''),  #span(name),
                 span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
                 self.teardownDurationSpan,
                 _class='folder_header')
@@ -870,14 +864,10 @@ class HtmlLogger:
     
     def setup_fail(self,name, utype, e, stacktrace):  
         self.curSetupEle['class'] += ' fail'
-
-        stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
         self.curEle += div(f'{utype} setup fail | {e} \n{stacktrace}', _class='info error-info')
     
     def teardown_fail(self,name, utype, e, stacktrace):           
         self.curTeardownEle['class'] += ' fail'
-
-        stacktrace = "Traceback:\n" +stacktrace.split("\n",3)[3]
         self.curEle += div(f'{utype} teardown fail | {e} \n{stacktrace}', _class='info error-info')
 
     def info(self, msg):

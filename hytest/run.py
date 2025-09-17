@@ -27,29 +27,32 @@ def run() :
                         help=("创建新项目目录", "create a project folder")[l.n])
     parser.add_argument("case_dir", nargs='?', default='cases',
                         help=("用例根目录", "")[l.n])
-    parser.add_argument("--loglevel", metavar='Level_Number', type=int, default=3,
+    parser.add_argument("--loglevel", metavar='level_number', type=int, default=3,
                         help=("日志级别 0,1,2,3,4,5(数字越大，日志越详细)", "log level 0,1,2,3,4,5(bigger for more info)")[l.n])
 
     parser.add_argument('--auto_open_report', choices=['yes', 'no'], default='yes',
                         help=("测试结束不自动打开报告", "don't open report automatically after testing")[l.n])
-    parser.add_argument("--report_title", metavar='Report_Title',
+    parser.add_argument("--report_title", metavar='report_title',
                         default=['测试报告','Test Report'][l.n],
                         help=['指定测试报告标题','set test report title'][l.n])
-    parser.add_argument("--report_url_prefix", metavar='Url_Prefix',
+    parser.add_argument("--report_url_prefix", metavar='url_prefix',
                         default='',
                         help=['测试报告URL前缀','test report URL prefix'][l.n])
 
-    parser.add_argument("--test", metavar='Case_Name', action='append', default=[],
+    parser.add_argument("--test", metavar='case_name', action='append', default=[],
                         help=("用例名过滤，支持通配符", "filter by case name")[l.n])
-    parser.add_argument("--suite", metavar='Suite_Name', action='append', default=[],
+    parser.add_argument("--suite", metavar='suite_name', action='append', default=[],
                         help=("套件名过滤，支持通配符", "filter by suite name")[l.n])
-    parser.add_argument("--tag", metavar='Tag_Expression', action='append', default=[],
+    parser.add_argument("--tag", metavar='tag_expression', action='append', default=[],
                         help=("标签名过滤，支持通配符", "filter by tag name")[l.n])
-    parser.add_argument("--tagnot", metavar='Tag_Expression', action='append', default=[],
+    parser.add_argument("--tagnot", metavar='tag_expression', action='append', default=[],
                         help=("标签名反向过滤，支持通配符", "reverse filter by tag name")[l.n])
-    parser.add_argument("-A", "--argfile", metavar='Argument_File',
+    parser.add_argument("-A", "--argfile", metavar='argument_file',
                         type=argparse.FileType('r', encoding='utf8'),
                         help=("使用参数文件", "use argument file")[l.n])
+    parser.add_argument("-saic", "--set-ai-context", metavar='ai_context_file',
+                        type=str,
+                        help=("设置 AI Context 文件（比如 GEMINI.md）内容，加入hytest使用方法", "set AI context file(like GEMINI.md) by appending hytest guide")[l.n])
 
     args = parser.parse_args()
 
@@ -59,6 +62,28 @@ def run() :
         print(fileArgs)
         args = parser.parse_args(fileArgs,args)
 
+    # 设置AI上下文内容
+    if args.set_ai_context:
+        ctxFile = args.set_ai_context
+        ctxContent = ''
+        
+        if os.path.exists(ctxFile):
+            with open(ctxFile, encoding='utf8') as f:
+                ctxContent = f.read() + '\n\n'
+               
+            if 'hytest 简介' in ctxContent:   
+                print(f'{ctxFile} {("里面已经包含了hytest资料", "already includes hytest guide.")[l.n]}')
+                exit()
+
+        hytestGuideFile = os.path.join(os.path.dirname(__file__), 'utils','hytest.md')   
+        ctxContent += open(hytestGuideFile, encoding='utf8').read()
+
+        with open(ctxFile, 'a', encoding='utf8') as f:
+            f.write(ctxContent)
+
+        print(f'{ctxFile} {("里面增加了hytest资料", "now includes hytest guide.")[l.n]}')
+        exit()
+        
 
     # 看命令行中是否设置了语言
     if args.lang:

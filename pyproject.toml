@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hytest"
-version = "0.9.0"
+version = "0.9.3"
 authors = [
   {name = "baiyueheiyu 白月黑羽", email = "jcyrss@gmail.com"},
 ]
@@ -36,4 +36,4 @@ hytest = "hytest.run:run"
 include = ["hytest*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.css", "*.js", "*.png", "*.ico"]
+"*" = ["*.*"]

@@ -650,28 +650,12 @@ class Runner:
             except CheckPointFail as e:   
                 case.execRet = 'fail'
                 case.error = e 
-                
-                stacktrace = traceback.format_exc()                
-                
-                # Traceback 前3行信息多余， 不要
-                stacktrace = "Traceback:\n" + stacktrace.split("\n",3)[3] 
-               
-                # 如果 Traceback 后3行信息固定的是 common.py 里面的 CheckPointFail ，也多余， 不要
-                if ', in CHECK_POINT' in  stacktrace:
-                    stacktrace = stacktrace.rsplit("\n",4)[0]
-
-                case.stacktrace = stacktrace
+                case.stacktrace = cls.trim_stack_trace(traceback.format_exc())
                    
             except Exception as e:  
                 case.execRet = 'abort'
                 case.error = e
-
-                stacktrace = traceback.format_exc()                
-                
-                # Traceback 前3行信息多余， 不要
-                stacktrace = "Traceback:\n" + stacktrace.split("\n",3)[3] 
-
-                case.stacktrace = stacktrace
+                case.stacktrace = cls.trim_stack_trace(traceback.format_exc())
 
 
             # 用例结果 通知 各日志模块            
@@ -708,6 +692,20 @@ class Runner:
             case._case_end_time = time.time()
             case._case_duration = case._case_end_time - case._case_begin_time
             signal.leave_case(cls.caseId, duration=case._case_duration)
+
+    @classmethod
+    def trim_stack_trace(cls, stacktrace):
+        # Traceback 前3行信息多余， 不要
+        if 'in _exec_cases' in  stacktrace:     
+            stacktrace = stacktrace.split("\n",3)[3].strip() 
+            if stacktrace.startswith('~~~~~~~~~~~~~~^^'):
+                stacktrace = stacktrace.split("\n",1)[1].strip() 
+        
+        # 如果 Traceback 后3行信息固定的是 common.py 里面的 CheckPointFail ，也多余， 不要
+        if ', in CHECK_POINT' in  stacktrace:
+            stacktrace = stacktrace.rsplit("\n",4)[0]
+
+        return stacktrace
 
 
 if __name__ == '__main__':
