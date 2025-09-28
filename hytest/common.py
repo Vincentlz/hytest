@@ -7,31 +7,41 @@ import inspect
 import ast
 import executing 
 
-class _GlobalStore:
-    def __getitem__(self, key, default=None):
-        if hasattr(self, key):
-            return getattr(self, key)
-        else:
+class _GlobalStore(dict):
+    
+    def __getattr__(self, key, default=None):
+        if key not in self:
             return default
-        
-    def __setitem__(self,key,value):
-        setattr(self, key, value )
+        return self[key]
+    
+    def __setattr__(self, key, value):
+        self[key] = value
+    
+    def __delattr__(self, key):
+        if key not in self:
+            return
+        del self[key]
 
-    get = __getitem__
+    def __getitem__(self, key, default=None):
+        return self.get(key, default)  
 
 # used for storing global shared data
 GSTORE = _GlobalStore()
 
-def INFO(info):
+def INFO(*args, sep=' ', end='\n'):
     """
     print information in log and report.
     This will not show in terminal window.
 
     Parameters
     ----------
-    info : object to print
+    args : objects to print
+    sep  : the char to join the strings of args objects, default is space char
+    end  : the end char of the content, default is new line char.
     """
-    signal.info(f'{info}')
+    
+    logStr = sep.join([str(arg) for arg in args]) + end
+    signal.info(logStr)
 
 def STEP(stepNo:int,desc:str):
     """
@@ -102,7 +112,7 @@ def CHECK_POINT(desc:str, condition, failStop=True, failLogScreenWebDriver = Non
 
                 # * 反解析参数节点以获得完整表达式 ➡️🔍💲⬅️❌ 🔔💡 *
                 full_expression_str = ast.unparse(arg_node).strip()
-                compaireInfo += (f"\n\n 🔎 {full_expression_str} ")
+                compaireInfo += (f" 🔎 {full_expression_str} ")
 
                 left_expr_str = ast.unparse(arg_node.left).strip()
                 right_expr_str = ast.unparse(arg_node.comparators[0]).strip()
@@ -136,7 +146,7 @@ def CHECK_POINT(desc:str, condition, failStop=True, failLogScreenWebDriver = Non
             del caller_frame
 
 
-    signal.checkpoint_fail(desc + compaireInfo)
+    signal.checkpoint_fail(desc, compaireInfo)
 
     # 如果需要截屏
     if failLogScreenWebDriver is not None:

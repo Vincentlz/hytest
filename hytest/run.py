@@ -78,7 +78,7 @@ def run() :
         hytestGuideFile = os.path.join(os.path.dirname(__file__), 'utils','hytest.md')   
         ctxContent += open(hytestGuideFile, encoding='utf8').read()
 
-        with open(ctxFile, 'a', encoding='utf8') as f:
+        with open(ctxFile, 'w', encoding='utf8') as f:
             f.write(ctxContent)
 
         print(f'{ctxFile} {("里面增加了hytest资料", "now includes hytest guide.")[l.n]}')

@@ -310,11 +310,11 @@ class TextLogger:
             logger.info('  PASS ')
         else:
             if case.execRet == 'fail':                    
-                logger.info(f'  FAIL   {case.error} \n{case.stacktrace}')
+                logger.info(f'  FAIL\n\n{case.stacktrace}')
 
 
             elif case.execRet == 'abort':
-                logger.info(f'  ABORT   {case.error} \n{case.stacktrace}')
+                logger.info(f'  ABORT\n\n{case.stacktrace}')
 
 
 
@@ -362,10 +362,11 @@ class TextLogger:
                      f'\n** checkpoint **  {desc} ---->  pass\n'
                      )[l.n])
         
-    def checkpoint_fail(self, desc):
+    def checkpoint_fail(self, desc, compaireInfo):
         logger.info((f'\n** 检查点 **  {desc} ---->  !! 不通过!!\n',
                      f'\n** checkpoint **  {desc} ---->  !! fail!!\n'
                      )[l.n])
+        logger.info(compaireInfo)
 
 
     def log_img(self,imgPath: str, width: str = None):
@@ -736,13 +737,13 @@ class HtmlLogger:
         elif case.execRet == 'fail':
             self.curCaseEle['class'] += ' fail'
             self.curCaseLableEle += ' ❌'
-            self.curEle += div(f'{case.error} \n{case.stacktrace}', _class='info error-info')
+            self.curEle += div(f'{case.stacktrace}', _class='info error-info')
             
         elif case.execRet == 'abort':                
             self.curCaseEle['class'] += ' abort'
             self.curCaseLableEle += ' 🚫'
 
-            self.curEle += div(f'{case.error} \n{case.stacktrace}', _class='info error-info')
+            self.curEle += div(f'{case.stacktrace}', _class='info abort-info')
 
         self.stepsDurationSpan += f"{round(case._steps_duration,1)}s"
             
@@ -892,12 +893,12 @@ class HtmlLogger:
                            span(desc, _class='paragraph' ), 
                            _class='checkpoint_pass')
         
-    def checkpoint_fail(self, desc):
+    def checkpoint_fail(self, desc, compaireInfo):
         if self.curEle is None:
             return
 
         self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} ❌', _class='tag'), 
-                           span(desc, _class='paragraph' ), 
+                           span(f"{desc}\n\n{compaireInfo}" , _class='paragraph' ), 
                            _class='checkpoint_fail')
 
 

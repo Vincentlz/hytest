@@ -22,8 +22,14 @@ def delete_order(oid):
 force_tags = ['优先级1']
 
 
-def suite_setup():
+def suite_setup():    
     INFO('功能1-套件初始化')
+    INFO(GSTORE['你 好'])
+    INFO(GSTORE.hello)
+    INFO(GSTORE['hello'])
+    INFO(GSTORE.good)
+    INFO(GSTORE['good'])
+    INFO(GSTORE['abc'])
     pass
 
 
@@ -40,9 +46,9 @@ class c00001:
     tags = ['本次不测', 'now']
 
     # 用例的初始化
-    def setup(self):
-        INFO('添加订单')
-        time.sleep(1.1)
+    def setup(self,good):
+        INFO('添加订单',good)
+        time.sleep(0.1)
         ret = add_order('order name')
 
         # we could compare complicated data object easily,
@@ -59,12 +65,12 @@ class c00001:
     # 用例的清除
     def teardown(self):
         INFO('删除订单')
-        time.sleep(0.8)
+        time.sleep(0.1)
         delete_order(self.orderid)
 
     # 测试用例 具体操作步骤
-    def teststeps(self):
-        STEP(1, '再添加一个订单')
+    def teststeps(self, good2):
+        STEP(1, f'再添加一个订单:{good2}')
         CHECK_POINT('检查API接口返回值', True)
 
         STEP(2, '重命名订单')

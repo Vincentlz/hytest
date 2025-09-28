@@ -5,8 +5,8 @@ force_tags = ['功能测试']
 
 
 def suite_setup():
-    GSTORE['你 好'] = '吼吼吼吼吼吼吼吼吼吼吼吼吼吼吼吼'
     GSTORE.hello = 'hellooooooooooooooooooooooo'
+    GSTORE['good'] = '333333333333333'
     gs.driver = 'abc'
     INFO('总初始化')
 
@@ -16,7 +16,7 @@ def suite_teardown():
     pass
 
 
-from hytest import signal
+# from hytest import signal
 
 # class MySignalHandler:
 #     TEST_RET_COL_NO = 6 # 测试结果在用例excel文件中的列数

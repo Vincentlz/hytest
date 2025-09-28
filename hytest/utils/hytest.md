@@ -4,28 +4,7 @@
 
 本项目为一个Python语言开发的自动化软件测试项目。 使用了 `hytest` 自动化测试框架。
 
-下面是 hytest 框架的详细介绍。
-
-## hytest 简介
-
-`hytest`  是白月黑羽自己研发的Python自动化测试框架。
-
-它有如下特点：
-
-1. hytest 让大家直接用 Python 来写测试用例。
-  
-如果你有 Python编程经验，1小时就可以上手，1天就可以灵活使用。
-
-
-2. 操作直观易懂 
-
-  测试用例以 目录文件结构存放，清晰明了
-
-  `初始化清除` 机制清晰灵活 
-
-  可以灵活地 **挑选** 要执行的测试用例
-
-3. 漂亮的测试报告
+`hytest`  让大家直接用 Python 来写测试用例，`初始化清除` 机制清晰灵活 ，可以灵活地 **挑选** 要执行的测试用例。
 
 
 
@@ -41,7 +20,6 @@ pip install hytest
 注意： hytest 需要 Python 3.9 或者 更高版本
 
 
-<br>
 
 执行hytest 自动化之前，需要新建一个 `项目目录` ， 里面创建一个名为   `cases`  的子目录用来存放测试用例代码即可。
 
@@ -59,16 +37,13 @@ pip install hytest
 python -m hytest
 ```
 
-<br>
+
 
 如果你是苹果Mac系统，可以执行命令
 
 ```
 python3 -m hytest
 ```
-
-<br>
-
 
 执行后的命令行窗口界面输出，展示了执行每个用例的结果。
 
@@ -84,11 +59,10 @@ python3 -m hytest
 - 跳转到下一个、上一个错误
   方便在出现问题是，快速定位到问题所在点
 
-<br>
 
-如果你是给国外做自动化测试，需要产生英文版的报告，只需要加上 参数 `--lang=en` 
+测试报告的语言缺省使用操作系统语言，如果要强制指定，只需要加上 参数 `--lang` 
 
-如下
+比如
 
 ```py
 hytest  --lang=en
@@ -99,7 +73,7 @@ python -m hytest  --lang=en
 ```
 
 
-<br>
+
 
 如果你不希望执行完测试后，自动打开测试报告，可以使用参数  `--auto_open_report=no` 
 
@@ -109,14 +83,7 @@ python -m hytest  --lang=en
 hytest --auto_open_report=no
 ```
 
-<br>
-
 关于hytest 命令行的参数使用，后面会有详细讲解，以后如果忘了某个命令参数可以执行  `hytest -h`  来查看参数说明。
-
-
-
-
-<br>
 
 
 以后真正做项目自动化的时候，通常还需要创建一些其他的目录，比如
@@ -131,7 +98,6 @@ hytest --auto_open_report=no
    存放 一些说明文档
 
 
-<br>
 
 可以使用命令参数  `--new` 来创建一个 hytest 的自动化项目目录，里面会包含一个cases目录和一个示例代码文件。
 
@@ -160,7 +126,7 @@ hytest --new auto1
 - 多个代码文件可以用目录组织起来
   
 
-<br>
+
 
 `cases` 目录下面的 每个目录 和 py 文件 都 被称之为 `测试套件(suite)`  
 
@@ -206,12 +172,12 @@ class UI_0101:
 ```
 
 
-<br>
+
 
 
 为了使我们的测试日志和报告 更加清晰的展示执行的过程， 我们可以调用 hytest 的一些库函数，输出 执行步骤、提示信息 、检查点信息。
 
-<br>
+
 
 代码最前面加上 如下代码 ，导入 hytest 库里面 的常用 函数 
 
@@ -255,9 +221,11 @@ class UI_0101:
    
    第2个参数是 检查点表达式，比如 `result["retcode"] == 0`；
    
-   第3个参数是 检查点不通过后是否继续执行该用例后面的代码。 缺省情况下，一个检查点不通过，后面的测试代码就不会继续执行。
+   第3个参数是 检查点不通过后是否继续执行该用例后面的代码。 
+   
+   缺省情况下，一个检查点不通过，该用例teststeps后面的测试代码就不会继续执行。
 
-   如果你希望 某个检查点即使不通过，后续代码仍然继续执行，可以使用参数  `failStop=False` ，如下所示
+   如果你希望 某个检查点即使不通过，teststeps 后续代码仍然继续执行，可以使用参数  `failStop=False` ，如下所示
 
    ```py   
     def teststeps(self):
@@ -268,11 +236,6 @@ class UI_0101:
    ```
 
 
-
-
-
-
-<br>
 
 ## 一个例子
 
@@ -286,8 +249,7 @@ class UI_0101:
 我们先完成用例  `UI-0101` 的自动化，用例描述如下
 
 
-<br>
-
+```
 - 用例类别
   
   管理员登录
@@ -316,43 +278,41 @@ class UI_0101:
 客户
 药品
 订单
+```
 
 
 
-<br>
-
-
-对应的hytest 测试用例 参考代码如下
-
+对应的 hytest 测试用例 参考代码如下
 
 
 ```py
 from hytest import *
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 class UI_0101:
 
     # 用例名
     name =  '检查操作菜单 UI_0101'
- 
+
     # 测试步骤
     def teststeps(self):
-        
+
         STEP(1,'登录网站')
 
-        wd = webdriver.Edge()
+        wd = webdriver.Chrome()
         wd.implicitly_wait(10)
 
         wd.get('http://127.0.0.1/mgr/sign.html')
 
-        wd.find_element_by_id('username').send_keys('byhy')
-        wd.find_element_by_id('password').send_keys('88888888')
+        wd.find_element(By.ID, 'username').send_keys('byhy')
+        wd.find_element(By.ID, 'password').send_keys('88888888')
 
-        wd.find_element_by_tag_name('button').click()
+        wd.find_element(By.TAG_NAME, 'button').click()
 
         STEP(2,'获取左侧菜单信息')
 
-        eles = wd.find_elements_by_css_selector('.sidebar-menu li span')
+        eles = wd.find_elements(By.CSS_SELECTOR, '.sidebar-menu li span')
 
         menuText = [ele.text  for ele in eles]
 
@@ -371,23 +331,21 @@ class UI_0101:
 ## 初始化、清除
 
 
-仔细分析，上面两个用例的自动化仍然有问题。
-
-两个用例都要 打开浏览器登陆
+仔细分析，上面用例要 打开浏览器登陆
 
 如果有100个这样的用例，就执行100次登录的操作。
 
-这两个用例 重点其实不在登录，而是后面的操作。
+这些用例 重点其实不在登录，而是后面的操作。
 
-两个用例后面的操作 需要的初始环境是一样的 ：   `打开浏览器并且登录`  的环境
+它们后面的操作 需要的初始环境是一样的 ：   `打开浏览器并且登录`  的环境
 
 能不能共享执行环境?
 
-让这两个用例开始执行的时候，就处于 打开浏览器并且登录 的环境
+让这些用例开始执行的时候，就处于 打开浏览器并且登录 的环境
 
 就是我们用例执行时，就获取一个 WebDriver对象， 对应  管理员账号已经登录状态 的浏览器，后面的代码直接就可以使用这个 WebDriver对象 执行操作。
 
-<br>
+
 
 怎么 让自动化 用例执行的时候，就有一个 打开浏览器并且登录 的 `初始环境`  呢？
 
@@ -415,7 +373,7 @@ class UI_0101:
 
 这就需要在执行完用例A 后，执行一个 清除（还原）操作， 把添加的用户账号user1 删除掉。
 
-<br>
+
 
 可能有的朋友说，那也可以在用例B的初始化操作里面删除所有账号啊。
 
@@ -426,9 +384,6 @@ class UI_0101:
  `谁` 做的 `初始化` 操作对环境产生了 `什么改变` ， 
  
  `谁` 就应该在 `清除` 操作里面做什么样的 `还原` 。 
-
-<!-- 自己拉完，自己擦，而且还要擦干净，不要让别人帮你擦。 -->
-
 
 
 hytest 的初始化/清除 支持 `3种方式` 
@@ -462,9 +417,6 @@ class c0101:
     # 测试用例步骤
     def teststeps(self):        
 ```
-
-
-<br>
 
 
 
@@ -528,16 +480,9 @@ class c0102:
 
 ```
 
-<br>
-
-如果一个 用例文件 既有 suite_setup、suite_teardown  ，用例里面也有 setup、teardown , 执行的顺序如下
-
-![image](https://www.byhy.net/cdn2/imgs/gh/36257654_64908999-0942ef00-d739-11e9-8016-6bd8264ee81d.png){loading=lazy}
 
 
-<br>
-
-次序是
+如果一个 用例文件 既有 suite_setup、suite_teardown  ，用例里面也有 setup、teardown , 执行的次序是
 
 - 执行用例文件的 suite_setup， 
   
@@ -568,22 +513,13 @@ class c0102:
 
 那么怎么设置一个目录共同的初始化呢？
 
-就是 在这个目录下面创建名为  `__st__.py`  的文件。 注意：前后都是  `两个` 下滑线
+就是 在这个目录下面创建名为  `__st__.py`  的文件。
 
 和套件文件一样，套件目录的 的初始化、清除 也是在 文件中 添加全局函数 suite_setup、suite_teardown。 
 
-请大家根据我们的视频 修改用例目录结构，加上 合适的 初始化、清除 代码。
 
 
-如果 套件目录有 suite_setup、suite_teardown，  用例文件也有 suite_setup、suite_teardown  ，用例里面也有 setup、teardown , 执行的顺序如下所示
-
-![image](https://www.byhy.net/cdn2/imgs/gh/36257654_64909469-2a0e4300-d73f-11e9-9436-3fd3afa5f841.png){loading=lazy}
-
-
-
-<br>
-
-次序是
+如果 套件目录有 suite_setup、suite_teardown，  用例文件也有 suite_setup、suite_teardown  ，用例里面也有 setup、teardown , 执行的次序是
 
 - 执行用例目录的 suite_setup，
 
@@ -606,9 +542,9 @@ class c0102:
 
 就是定义 名称为  `test_setup`  和  `test_teardown` 的全局函数。
 
-如果在 用例文件 中定义了 全局函数 `test_setup` ， 该文件中某个用例  `本身没有初始化` 方法， 执行自动化的时候就会 使用这个 test_setup 来初始化
+如果在 用例文件 中定义了 全局函数 `test_setup` ， 该文件中某个用例  `本身没有初始化` 方法， 执行自动化的时候就会 使用这个 `test_setup` 来初始化
 
-如果在 用例文件 中定义了 全局函数 `test_teardown` ，该文件中某个用例  `本身没有清除` 方法， 执行自动化的时候就会 使用这个 test_teardown 来清除
+如果在 用例文件 中定义了 全局函数 `test_teardown` ，该文件中某个用例  `本身没有清除` 方法， 执行自动化的时候就会 使用这个 `test_teardown` 来清除
 
 
 
@@ -616,13 +552,15 @@ class c0102:
 
 ## 数据关联
 
+### 用法
+
 在初始化操作里面，经常会有创建一些数据，这些数据要在后面的用例中使用。
 
 这对于 用例类内部的初始化数据方法setup 来说，很简单， 因为测试步骤和清除方法的都是同一个类的。
 
-hytest框架执行时，会为该类创建实例。 所以只需要放入self实例属性即可
+hytest框架执行时，会为该类创建实例。 所以只需要放入实例属性即可
 
-<br>
+
 
 对于 用例文件或者 整个套件目录的初始化函数， 怎么把  `suite_setup` 函数  产生的数据给里面的用例使用呢？ 
 
@@ -651,7 +589,7 @@ class c00303:
         createOrder(productid=GSTORE['环境1产品id'])
 ```
 
-<br>
+
 
 GSTORE 也可以进行属性赋值和取值，比如
 
@@ -676,7 +614,34 @@ class c00303:
 这样写起来更简单，但是属性名要符合python的变量名规则，就不能有空格、加减号 之类的字符了。
 
 
-<br>
+### 依赖注入
+
+如果觉得代码中使用  `GSTORE.data1` 或者  `GSTORE['data1']` 这样的写法太麻烦，可以使用 **依赖注入** 来解决
+
+直接把你需要的 GSTORE里面的对象名称作为参数，传递给 `teststeps`方法，或者 初始化清除方法/函数 。
+
+hytest 框架在调用这些方法的时候，会检查参数，自动把 GSTORE里面的同名对象赋值给该参数。
+
+比如
+
+```py
+def suite_setup():
+    GSTORE.productId = createProduct()
+    GSTORE.driver = webdriver.Chrome()
+
+def suite_teardown(driver):
+    deleteProduct(GSTORE.productId)
+    driver.quit()
+
+
+class c00303:
+    name = '添加订单 - API-0303'
+
+    def teststeps(self, productId):
+        createOrder(productid=productId)    
+```
+
+### IDE 类型提示
 
 使用内置的GSOTRE有个缺点，就是不知道添加的数据类型，IDE没法辅助，比如不能自动补齐对象的方法。
 
@@ -713,7 +678,7 @@ class c00303:
         createOrder(productid=gs.productId)
 ```
 
-<br>
+
 
 gs 定义的时候，里面的各个属性就有类型声明，后面使用该属性时，IDE就可以进行代码辅助了。
 
@@ -733,7 +698,7 @@ gs 定义的时候，里面的各个属性就有类型声明，后面使用该�
 
 这就是数据驱动。
 
-<br>
+
 
 举个例子：
 
@@ -756,7 +721,7 @@ gs 定义的时候，里面的各个属性就有类型声明，后面使用该�
 - 输入正确用户名，输入比正确密码后面多一个字符
 
 
-<br>
+
 
 这种情况可以使用 hytest用例 的 数据驱动格式，只需如下定义即可
 
@@ -780,7 +745,7 @@ class c00003x:
     ]
     
     # 调用时，
-    # hytest 框架执行时，会自动创建出3份用例实例
+    # hytest 框架执行时，会自动创建出3个用例实例
     # 并且在调用 teststeps时，把每个用例的参数设置在 self.para 中
     # 用例代码 可以直接从 self.para 中获取参数  
     def teststeps(self):
@@ -791,67 +756,6 @@ class c00003x:
 ```
 
 这样，我们就不需要定义那么多的测试用例类了， 而且测试数据也可以集中存放。
-
-
-
-<br>
-
-视频讲解中的 测试用例代码如下
-
-```py
-from time import sleep
-from lib.webui import *
-from selenium.webdriver.common.by import By
-
-class UI_000x:
-
-    ddt_cases = [
-        {
-            'name': '登录 UI_0001',
-            'para': [None, '88888888','请输入用户名']
-        },
-        {
-            'name': '登录 UI_0002',
-            'para': ['byhy', None, '请输入密码']
-        },
-        {
-            'name': '登录 UI_0003',
-            'para': ['byh', '88888888','登录失败 : 用户名或者密码错误']
-        }
-    ]
-
-
-    def teststeps(self):
-        wd = GSTORE['wd']
-
-        wd.get('http://127.0.0.1/mgr/sign.html')
-
-        username, password, info = self.para
-
-        if username is not None:
-            wd.find_element(By.ID, 'username').send_keys(username)
-
-        if password is not None:
-            wd.find_element(By.ID, 'password').send_keys(password)
-
-        wd.find_element(By.TAG_NAME, 'button').click()
-
-        sleep(2)
-
-        notify = wd.switch_to.alert.text
-
-        CHECK_POINT('弹出提示', notify == info)
-
-        wd.switch_to.alert.accept()
-
-
-    def teardown(self):
-        wd = GSTORE['wd']
-        wd.find_element(By.ID, 'username').clear()
-        wd.find_element(By.ID, 'password').clear()
-```
-
-<br>
 
 特别要注意的是： 一旦使用数据驱动定义了用例，那么这些用例的名字就不是类名（比如上面代码里面的 `UI_000x`），而是驱动里面定义的名称了（比如 `登录 UI_0001` ， `登录 UI_0002` ， `登录 UI_0003` ）。
 
@@ -882,7 +786,7 @@ class UI_000x:
         INFO(f'{self.para}')
 ```
 
-<br>
+
 
 hytest 的运行分为两个阶段
 
@@ -896,7 +800,7 @@ hytest 的运行分为两个阶段
 
   依次执行 上一步中创建的 `用例实例对象`
 
-<br>
+
 
 所以第一步中  **搜集创建用例对象，是在 执行用例之前** 的
 
@@ -974,7 +878,7 @@ hytest --test  *0101
 就可以挑选我们 练习中的 用例名为  `界面 - UI-0101` 的用例执行
 
 
-<br>
+
 
 假如，你的测试领导，要求做冒烟测试， 挑选出来的用例编号为以下这些：
 
@@ -1013,13 +917,9 @@ hytest --test *0301  --test *0302 --test *0303 --test *1401 --test *1402
 
 ## 挑选用例执行 - 标签方式
 
-<a href='https://www.bilibili.com/video/BV1bK4y1D7KZ?p=9' target='_blank'>点击这里，边看视频讲解，边学习以下内容</a>
-
-
 hytest  还有一种选择测试用例的方法：根据用例的 `标签` 来挑选用例
 
 ### 给用例添加标签
-
 
 
 我们可以给测试用例打上标签（tag），这样在运行的时候，可以通过标签指定要运行哪些用例。
@@ -1030,7 +930,7 @@ hytest  还有一种选择测试用例的方法：根据用例的 `标签` 来�
 
 hytest 可以根据设置的标签 选择执行该用例。 这个后面会讲
 
-<br>
+
 
 给用例添加标签有如下几种方式
 
@@ -1046,7 +946,7 @@ force_tags = ['登录功能','冒烟测试','UI测试']
 
 标签一定要放在列表中，即使只有一个标签
 
-<br>
+
 
 如果我们在测试套件目录初始化文件__st__.py定义了一个这样的 force_tags 全局变量, 那么该目录里面所有测试用例都具有了该tag
 

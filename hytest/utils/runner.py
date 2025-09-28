@@ -1,4 +1,4 @@
-import time
+import time, inspect
 import os, types, importlib.util, fnmatch, traceback
 
 from .signal import signal
@@ -6,8 +6,33 @@ from .signal import signal
 from ..cfg import l
 
 
+
 class CheckPointFail(Exception): 
     pass
+
+
+class DenpendencyInjectionFail(Exception): 
+    pass
+
+def dependency_injection_call(func):
+    from ..common import GSTORE
+    
+    sig = inspect.signature(func)
+
+    # params = [GSTORE[pname] for pname in sig.parameters.keys()]
+
+    params = []
+    for pname in sig.parameters.keys():
+        if pname not in GSTORE:
+            raise DenpendencyInjectionFail(
+                (f'参数 `{pname}` 不在 GSTORE 中',
+                 f'parameter `{pname}` not in GSTORE')[l.n]
+            )
+        
+        params.append(GSTORE[pname])
+
+    return func(*params)
+    
 
 # 用例标签匹配，有一个满足即可
 def tagmatch(pattern):
@@ -482,10 +507,11 @@ class Runner:
                 begin_time = time.time()  
                 
                 try:
-                    suite_teardown()
+                    # suite_teardown()
+                    dependency_injection_call(suite_teardown)
                 except Exception as e:
                     # 套件目录 清除失败
-                    signal.teardown_fail(name,'suite_dir', e,traceback.format_exc())
+                    signal.teardown_fail(name,'suite_dir', e, cls.trim_stack_trace(traceback.format_exc()))
                     
                 end_time = time.time()
                 duration = end_time - begin_time                            
@@ -507,10 +533,11 @@ class Runner:
                         signal.setup_begin(name,'suite_dir')
                         begin_time = time.time()   
                         try:                            
-                            suite_setup()  
+                            # suite_setup()  
+                            dependency_injection_call(suite_setup)
                         except Exception as e:
                             # 套件目录 初始化失败,
-                            signal.setup_fail(name,'suite_dir', e,traceback.format_exc())
+                            signal.setup_fail(name,'suite_dir', e, cls.trim_stack_trace(traceback.format_exc()))
                             # 记录到 初始化失败目录列表 中， 该套件目录内容都不会再执行
                             suite_setup_failed_list.append(name)
 
@@ -529,10 +556,11 @@ class Runner:
                         signal.setup_begin(name,'suite_file') 
                         begin_time = time.time()    
                         try:                            
-                            suite_setup()
+                            # suite_setup()
+                            dependency_injection_call(suite_setup)
                         except Exception as e:
                             # 套件文件 初始化失败 
-                            signal.setup_fail(name,'suite_file', e, traceback.format_exc())
+                            signal.setup_fail(name,'suite_file', e, cls.trim_stack_trace(traceback.format_exc()))
                             end_time = time.time()
                             duration = end_time - begin_time                            
                             signal.setup_end(name, 'suite_file', duration)
@@ -552,10 +580,11 @@ class Runner:
                         signal.teardown_begin(name,'suite_file')   
                         begin_time = time.time()                       
                         try:
-                            suite_teardown()
+                            # suite_teardown()
+                            dependency_injection_call(suite_teardown)
                         except Exception as e:
                             # 套件文件 清除失败
-                            signal.teardown_fail(name, 'suite_file', e,traceback.format_exc())
+                            signal.teardown_fail(name, 'suite_file', e, cls.trim_stack_trace(traceback.format_exc()))
                             
                         end_time = time.time()
                         duration = end_time - begin_time                            
@@ -620,7 +649,7 @@ class Runner:
             if caseSetup:
                 setupFunc = caseSetup
                 setupType = 'case'
-            elif test_setup:
+            elif test_setup: # 如果用例没有 setup ，但是有缺省  test_setup
                 setupFunc = test_setup
                 setupType = 'case_default'
 
@@ -629,12 +658,14 @@ class Runner:
                 signal.setup_begin(case.name, setupType)
                 
                 try:
-                    setupFunc()
+                    # setupFunc()
+                    dependency_injection_call(setupFunc)
+                    
                     case._hytest_case_setup_end_time = time.time()
                     case._setup_duration = case._hytest_case_setup_end_time - case._hytest_case_setup_begin_time
                     signal.setup_end(case.name, setupType, case._setup_duration)
                 except Exception as e:
-                    signal.setup_fail(case.name, setupType, e, traceback.format_exc())
+                    signal.setup_fail(case.name, setupType, e, cls.trim_stack_trace(traceback.format_exc()))
                     continue # 初始化失败，这个用例的后续也不用执行了                
 
             signal.case_steps(case.name)
@@ -645,7 +676,8 @@ class Runner:
                 case.execRet = 'pass'
                 
                 case._hytest_case_steps_begin_time = time.time()
-                case.teststeps()
+               
+                dependency_injection_call(case.teststeps)
             
             except CheckPointFail as e:   
                 case.execRet = 'fail'
@@ -680,12 +712,13 @@ class Runner:
                 case._hytest_case_teardown_begin_time = time.time()
                 signal.teardown_begin(case.name, teardownType)
                 try:
-                    teardownFunc()   
+                    # teardownFunc()   
+                    dependency_injection_call(teardownFunc)
                     case._hytest_case_teardown_end_time = time.time()
                     case._teardown_duration = case._hytest_case_teardown_end_time - case._hytest_case_teardown_begin_time
                     signal.teardown_end(case.name, teardownType, case._teardown_duration)
                 except Exception as e:
-                    signal.teardown_fail(case.name, teardownType, e,traceback.format_exc())
+                    signal.teardown_fail(case.name, teardownType, e, cls.trim_stack_trace(traceback.format_exc()))
            
            
             # 离开用例
@@ -695,15 +728,22 @@ class Runner:
 
     @classmethod
     def trim_stack_trace(cls, stacktrace):
-        # Traceback 前3行信息多余， 不要
-        if 'in _exec_cases' in  stacktrace:     
-            stacktrace = stacktrace.split("\n",3)[3].strip() 
-            if stacktrace.startswith('~~~~~~~~~~~~~~^^'):
+
+        # 依赖注入失败, 删除调用堆栈前面一大段信息
+        if 'hytest.utils.runner.DenpendencyInjectionFail:' in stacktrace:  
+            stacktrace = stacktrace.split("hytest.utils.runner.DenpendencyInjectionFail:",1)[-1].strip()
+            return stacktrace
+        
+
+        if 'in dependency_injection_call' in  stacktrace:
+            stacktrace = stacktrace.split("in dependency_injection_call",1)[-1].split("\n",2)[-1].strip()
+        
+        if stacktrace.startswith('~~~~~'):
                 stacktrace = stacktrace.split("\n",1)[1].strip() 
         
         # 如果 Traceback 后3行信息固定的是 common.py 里面的 CheckPointFail ，也多余， 不要
         if ', in CHECK_POINT' in  stacktrace:
-            stacktrace = stacktrace.rsplit("\n",4)[0]
+            stacktrace = stacktrace.rsplit("\n",4)[0].strip()
 
         return stacktrace
 

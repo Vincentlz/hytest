@@ -92,6 +92,10 @@ body {
     color: #a32626
 }
 
+.abort-info{
+    color: #9c27b0;
+}
+
 .suite_dir {
     margin: 1em .2em;
     padding: .3em;
