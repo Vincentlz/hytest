@@ -71,7 +71,7 @@ def run() :
             with open(ctxFile, encoding='utf8') as f:
                 ctxContent = f.read() + '\n\n'
                
-            if 'hytest 简介' in ctxContent:   
+            if '# hytest 自动化测试框架 简介' in ctxContent:   
                 print(f'{ctxFile} {("里面已经包含了hytest资料", "already includes hytest guide.")[l.n]}')
                 exit()
 
