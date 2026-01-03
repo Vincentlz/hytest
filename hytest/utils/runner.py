@@ -4,6 +4,7 @@ import os, types, importlib.util, fnmatch, traceback
 from .signal import signal
 
 from ..cfg import l
+from pprint import pprint
 
 
 
@@ -54,6 +55,37 @@ def tagmatch(pattern):
     如果是用例模块，根据 选择条件 判定模块里面的用例 是否被选中，去掉没有选中的用例
 
 从执行列表中去掉 没有包含用例的 目录模块
+
+
+
+最终， exec_list属性结果 示例如下
+[
+    'cases/',                  # 其实就是 __st__.py 对象
+    'cases/功能1.py',
+    'cases/功能2.py',
+    'cases/customer/',        # 其实就是 __st__.py 对象
+    'cases/customer/功能21.py',
+    'cases/order/',           # 其实就是 __st__.py 对象
+    'cases/order/功能31.py',
+] 
+
+
+后续的Runner里面， 会进一步处理每个对象： 
+如果有 tear_down, 到 exec_list 中 找到合适的位置，插入 tear_down 操作
+
+执行完此步骤后， exec_list 示例如下
+[
+    'cases/',
+    'cases/功能1.py',
+    'cases/功能2.py',
+    'cases/customer/',
+    'cases/customer/功能21.py',
+    'cases/customer/--teardown--',
+    'cases/order/',
+    'cases/order/功能31.py',
+    'cases/order/--teardown--',
+    'cases/--teardown--'
+] 
 ''' 
 class Collector:
     
@@ -80,10 +112,10 @@ class Collector:
     # 标签表，根据进入的路径，记录和当前模块相关的标签    
     #   格式如下  
     #     'force_tags': {
-    #         'cases\\': ['冒烟测试', '订单功能'],
-    #         'cases\\customer\\功能21.py': ['冒烟测试', '订单功能'],},
+    #         'cases/': ['冒烟测试', '订单功能'],
+    #         'cases/customer/功能21.py': ['冒烟测试', '订单功能'],},
     #     'default_tags': {
-    #         'cases\\customer\\功能31.py': ['优先级7']   }
+    #         'cases/customer/功能31.py': ['优先级7']   }
 
     suite_tag_table = {
         'force_tags':{},
@@ -96,45 +128,113 @@ class Collector:
 
     @classmethod
     def run(cls,
-            casedir='cases',
+            file_or_dir=['cases'],
             suitename_filters=[], # 只要有一个匹配就算匹配
             casename_filters=[],   # 只要有一个匹配就算匹配
             tag_include_expr=None,    
             tag_exclude_expr=None,   
             ):
+        
+        # 处理一个命令行参数里面的目标文件或目录
 
+        def _process_one_target(target):            
+            # print('处理：',target)
+            if os.path.isfile(target):
+                _process_file(target)
+            
+            elif os.path.isdir(target):
+                for (dirpath, dirnames, filenames) in os.walk(target):
+                    # 确保 __st__.py 在最前面
+                    if '__st__.py' in filenames:
+                        filenames.remove('__st__.py')
+                        filenames.insert(0,'__st__.py')
+
+                    # 处理每个可能的执行模块文件
+                    for fn in filenames:
+                        filepath = os.path.join(dirpath, fn)
+                        _process_file(filepath)
+
+        # 处理一个模块文件
+        def _process_file(filepath):
+            if not filepath.endswith('.py'):
+                return
+            
+            signal.info(f'\n== {filepath} \n')
+            
+            filename = os.path.basename(filepath)
+            module_name = filename[:-3]
+            
+            spec = importlib.util.spec_from_file_location(module_name, filepath)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # 处理一个模块文件
+            cls.handleOneModule(module,filepath,
+                tag_include_expr,
+                tag_exclude_expr,
+                suitename_filters,
+            casename_filters)
+        
 
         signal.info(
             ('\n\n===   [ 收集测试用例 ]  === \n',
             '\n\n===   [ collect test cases ]  === \n')[l.n]
         )
 
-        for (dirpath, dirnames, filenames) in os.walk(casedir):
-            # 确保 __st__.py 在最前面
-            if '__st__.py' in filenames:
-                filenames.remove('__st__.py')
-                filenames.insert(0,'__st__.py')
 
-            # 处理每个可能的执行模块文件
-            for fn in filenames:
-                filepath = os.path.join(dirpath, fn)
-                if not filepath.endswith('.py'):
-                    continue
-                
-                signal.info(f'\n== {filepath} \n')
-                module_name = fn[:-3]
-                spec = importlib.util.spec_from_file_location(module_name, filepath)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                # 处理一个模块文件
-                cls.handleOneModule(module,filepath,
-                    tag_include_expr,
-                    tag_exclude_expr,
-                    suitename_filters,
-                    casename_filters)
-
+        # file_or_dir 传入的可能是用例根目录，比如 ['cases']，
+        # 也可能是具体的用例文件，比如 ['cases/功能1.py']
+        # 也可能是两者的混合，比如 ['cases/f','cases/a/b', 'cases/a/c/t1.py', 'cases/d/t5.py']
+        # 前面已经处理过，不会出现包含关系的路径，也不会有不存在的路径，路径都处理为 正斜杠 /
         
+        unhandled_targets = set(file_or_dir)
+        handled_st_files = set()
+        for curTarget in file_or_dir:
+            if os.sep not in curTarget:
+                # 直接在当前工作目录下面的文件或目录， 比如 cases 或 test1.py
+                _process_one_target(curTarget)
+                unhandled_targets.remove(curTarget)
+                continue
+
+
+            # 如果该文件不是当前工作目录下面的直接文件或目录，比如 cases/a/c/t1.py
+            # 需要找到上层每一级里面的 __st__.py, 调用 _process_file 处理每一级目录的 __st__.py
+            # 比如 cases/__st__.py, cases/a/__st__.py， cases/a/c/__st__.py
+
+            if curTarget not in unhandled_targets: # 已经处理过了
+                # print('* already handled:',curTarget)
+                continue
+            
+            dirs = os.path.dirname(curTarget)
+
+            dir_parts = dirs.split(os.sep) if dirs else []
+            cur_path = ''
+            for dir_part in dir_parts:
+                cur_path = os.path.join(cur_path, dir_part)
+                # 对每一级目录，处理 __st__.py 文件
+                # print('* cur_path |',cur_path)
+                st_file = os.path.join(cur_path, '__st__.py')
+                if st_file in handled_st_files:
+                    continue                
+                if os.path.isfile(st_file):
+                    _process_file(st_file)
+                    handled_st_files.add(st_file)
+                
+                # 然后，看 unhandled_targets （包含正在处理的 curTarget）里面 是不是有直接在该级目录下的
+                # 如果有，就处理，这样能保证共享初始化，而不是重新初始化
+                toRemove = set()
+                for target in unhandled_targets: 
+                    # print('* check target |',target)
+                    fod_dir = os.path.dirname(target)
+                    if fod_dir == cur_path:
+                        _process_one_target(target)
+                        toRemove.add(target)
+
+                unhandled_targets -= toRemove
+
+
+
+
         # *** 从执行列表中去掉 没有包含用例的 目录模块 ***
         # 先把 套件目录 和 套件文件 分别放到列表 sts, cases 中
         sts, cases = [], []
@@ -155,6 +255,9 @@ class Collector:
                 cls.exec_list.remove(stPath) 
                 cls.exec_table.pop(stPath)
 
+        # print("cls.exec_list =")
+        # pprint(cls.exec_list, indent=4)
+
 
     # 处理一个模块文件
     @classmethod
@@ -169,7 +272,7 @@ class Collector:
         stType = filepath.endswith('__st__.py')
         caseType = not stType
 
-        if stType:
+        if stType:            
             filepath = filepath.replace('__st__.py','')
 
         # ======  搜寻该模块  hytest关键信息 ，保存在 meta 里面========
@@ -377,6 +480,9 @@ class Collector:
         return False
  
 
+
+
+
 '''
 执行自动化的 思路 伪代码如下：
 
@@ -385,14 +491,13 @@ class Collector:
 
 执行前， exec_list 示例如下
 [
-    'cases\\',
-    'cases\\.功能3.py',
-    'cases\\功能1.py',
-    'cases\\功能2.py',
-    'cases\\customer\\',
-    'cases\\customer\\功能21.py',
-    'cases\\order\\',
-    'cases\\order\\功能31.py',
+    'cases/',
+    'cases/功能1.py',
+    'cases/功能2.py',
+    'cases/customer/',
+    'cases/customer/功能21.py',
+    'cases/order/',
+    'cases/order/功能31.py',
 ] 
 
 
@@ -402,17 +507,16 @@ class Collector:
 
 执行完此步骤后， exec_list 示例如下
 [
-    'cases\\',
-    'cases\\.功能3.py',
-    'cases\\功能1.py',
-    'cases\\功能2.py',
-    'cases\\customer\\',
-    'cases\\customer\\功能21.py',
-    'cases\\customer\\--teardown--',
-    'cases\\order\\',
-    'cases\\order\\功能31.py',
-    'cases\\order\\--teardown--',
-    'cases\\--teardown--'
+    'cases/',
+    'cases/功能1.py',
+    'cases/功能2.py',
+    'cases/customer/',
+    'cases/customer/功能21.py',
+    'cases/customer/--teardown--',
+    'cases/order/',
+    'cases/order/功能31.py',
+    'cases/order/--teardown--',
+    'cases/--teardown--'
 ] 
     
 
@@ -449,7 +553,7 @@ class Runner:
     case_list = []
 
     @classmethod
-    def run(cls,):
+    def run(cls):
         
         signal.info(
             ('\n\n===   [ 执行测试用例 ]  === \n',
@@ -471,7 +575,9 @@ class Runner:
             if meta['type'] == 'st' and 'suite_teardown' in meta:
                 cls._insertTeardownToExecList(name)
 
-        # print(Collector.exec_list)
+        # print("Collector.exec_list =")
+        # pprint(Collector.exec_list, indent=4)        
+        # exit()
 
         # 2. 然后执行自动化流程         
         signal.test_start()
