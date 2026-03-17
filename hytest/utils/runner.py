@@ -45,6 +45,31 @@ def tagmatch(pattern):
     return False
 
 
+def normalize_tags(tags, source):
+    if tags is None:
+        return []
+
+    if isinstance(tags, str):
+        raise TypeError(
+            f'{source} should be a list/tuple/set of strings, not a single string: {tags!r}'
+        )
+
+    if not isinstance(tags, (list, tuple, set)):
+        raise TypeError(
+            f'{source} should be a list/tuple/set of strings, got {type(tags).__name__}: {tags!r}'
+        )
+
+    normalized = []
+    for idx, tag in enumerate(tags):
+        if not isinstance(tag, str):
+            raise TypeError(
+                f'{source}[{idx}] should be str, got {type(tag).__name__}: {tag!r}'
+            )
+        normalized.append(tag)
+
+    return normalized
+
+
  
 '''
 搜集有效执行对象的 思路 伪代码如下：
@@ -187,9 +212,10 @@ class Collector:
         # 也可能是两者的混合，比如 ['cases/f','cases/a/b', 'cases/a/c/t1.py', 'cases/d/t5.py']
         # 前面已经处理过，不会出现包含关系的路径，也不会有不存在的路径，路径都处理为 正斜杠 /
         
-        unhandled_targets = set(file_or_dir)
+        normalized_targets = [os.path.normpath(target) for target in file_or_dir]
+        unhandled_targets = set(normalized_targets)
         handled_st_files = set()
-        for curTarget in file_or_dir:
+        for curTarget in normalized_targets:
             if os.sep not in curTarget:
                 # 直接在当前工作目录下面的文件或目录， 比如 cases 或 test1.py
                 _process_one_target(curTarget)
@@ -298,7 +324,7 @@ class Collector:
             # signal.info(f'-- {name}')
 
             # 列表 ： 是 标签 吗？
-            if isinstance(item, list):
+            if isinstance(item, (list, tuple, set)):
                 # 非标签关键字，跳过
                 if name not in cls.SUITE_TAGS:
                     continue
@@ -307,6 +333,7 @@ class Collector:
                 if not item:
                     continue
 
+                item = normalize_tags(item, f'{filepath} -> {name}')
                 meta[name] = item
                 cls.suite_tag_table[name][filepath] = item
 
@@ -429,7 +456,10 @@ class Collector:
             # 得到当前模块相关的 套件 标签，就是表中现有的标签合并
             suite_tags = [t for tl in cls.suite_tag_table['force_tags'].values() for t in tl]
             # 用例本身的标签
-            case_tags = getattr(caseClass, 'tags',[])
+            case_tags = normalize_tags(
+                getattr(caseClass, 'tags', []),
+                f'{filepath} -> {type(caseClass).__name__}.tags'
+            )
             # 用例关联的所有的标签
             cls.current_case_tags = set(suite_tags + case_tags)
             # print(cls.current_case_tags)
