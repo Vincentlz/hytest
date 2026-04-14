@@ -185,20 +185,31 @@ class Collector:
                 return
             
             signal.info(f'\n== {filepath} \n')
-            
-            filename = os.path.basename(filepath)
-            module_name = filename[:-3]
-            
-            spec = importlib.util.spec_from_file_location(module_name, filepath)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            try:
+                filename = os.path.basename(filepath)
+                module_name = filename[:-3]
+                
+                spec = importlib.util.spec_from_file_location(module_name, filepath)
+                if spec is None or spec.loader is None:
+                    raise ImportError(f'cannot load module spec from {filepath}')
 
-            # 处理一个模块文件
-            cls.handleOneModule(module,filepath,
-                tag_include_expr,
-                tag_exclude_expr,
-                suitename_filters,
-            casename_filters)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # 处理一个模块文件
+                cls.handleOneModule(module,filepath,
+                    tag_include_expr,
+                    tag_exclude_expr,
+                    suitename_filters,
+                casename_filters)
+            except Exception as e:
+                tb = traceback.extract_tb(e.__traceback__)
+                location = ''
+                if tb:
+                    last_frame = tb[-1]
+                    location = f' ({last_frame.filename}:{last_frame.lineno})'
+                signal.error(f'failed to load module {filepath}{location}: {e}')
+                os._exit(3) # 3 表示搜集用例时发生异常
         
 
         signal.info(

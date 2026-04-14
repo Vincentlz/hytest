@@ -29,6 +29,11 @@ dependencies = [
 Homepage = "https://github.com/jcyrss/hytest"
 Download = "https://pypi.python.org/pypi/hytest"
 
+
+[tool.setuptools.dynamic]
+version = { attr = "hytest.product.version" }
+
+
 [project.scripts]
 hytest = "hytest.run:run"
 
