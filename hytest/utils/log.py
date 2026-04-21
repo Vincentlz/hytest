@@ -383,6 +383,23 @@ class HtmlLogger:
         self.curEle = None
         # 保存一个  用例文件名 -> htmlDiv对象 的表，因为执行到用例文件清除的时候，要在 用例文件Div对象里面添加 该文件teardown的子节点Div
         self.suiteFileName2DivTable = {}
+
+    def _meta_item(self, label_text, value_text):
+        return div(
+            span(label_text, _class='meta_label'),
+            span(value_text, _class='meta_value'),
+            _class='meta_item')
+
+    def _summary_card(self, caption, value, hint, tone):
+        return div(
+            span(caption, _class='summary_caption'),
+            span(str(value), _class='summary_value'),
+            span(hint, _class='summary_hint'),
+            _class=f'summary_card is-{tone}')
+
+    def _table_row(self, label_text, value, tone=None):
+        value_ele = str(value) if tone is None else span(str(value), _class=f'cell_value is-{tone}')
+        return tr(th(label_text), td(value_ele))
         
     def test_start(self,_title=''):
         libDir = os.path.dirname(__file__)
@@ -406,41 +423,141 @@ class HtmlLogger:
 
         self.main = self.doc.body.add(div(_class='main_section'))
 
-        self.main.add(h1(f'{Settings.report_title}', style='font-family: auto'))
+        self.statusBadgeEle = span(_class='status_badge status-running')
+        self.headerMetaEle = div(_class='header_meta')
+        self.summaryCardsEle = div(_class='summary_cards')
 
-        self.main.add(h3(('统计结果','Test Statistics')[l.n]))
+        reportSubtitle = (
+            '聚焦执行结果、失败定位与关键统计，适合日常回归和持续集成场景。',
+            'A cleaner execution view for regression runs, failure triage, and daily CI visibility.'
+        )[l.n]
 
-        resultDiv = self.main.add(div(_class='result'))
-
-        self.result_table, self.result_barchart = resultDiv.add(
-            table(_class='result_table'),
-            div(_class='result_barchart')
-        )
-
-        _, self.logDiv = self.main.add(
+        self.main.add(
             div(
-                # span('切换到精简模式',_class='h3_button', id='display_mode' ,onclick="toggle_folder_all_cases()"), 
-                h3(('执行日志','Test Execution Log')[l.n],style='display:inline'),
-                style='margin-top:2em'
-            ),
-            div(_class='exec_log')
+                div('HYTEST REPORT', _class='report_kicker'),
+                div(
+                    div(
+                        h1(f'{Settings.report_title}'),
+                        p(reportSubtitle, _class='report_subtitle'),
+                        _class='report_title_block'
+                    ),
+                    self.statusBadgeEle,
+                    _class='report_header_main'
+                ),
+                self.headerMetaEle,
+                _class='report_header'
+            )
         )
+
+        summarySection = self.main.add(div(_class='summary_section'))
+        summarySection.add(
+            div(
+                div(
+                    h2(('统计结果','Test Statistics')[l.n]),
+                    p(
+                        ('从用例规模、通过率和异常分布快速把握本次执行质量。',
+                         'Quickly understand scope, pass rate, and issue distribution for this run.')[l.n]
+                    )
+                ),
+                _class='section_intro'
+            )
+        )
+        summarySection.add(self.summaryCardsEle)
+
+        resultDiv = summarySection.add(div(_class='result'))
+
+        self.result_table = table(_class='result_table')
+        resultDiv.add(
+            div(
+                div(
+                    div(
+                        div(('统计明细','Execution Details')[l.n], _class='panel_title'),
+                        p(
+                            ('包含时间、执行规模和失败细项。',
+                             'Timing, execution scale, and detailed issue counts.')[l.n],
+                            _class='panel_desc'
+                        )
+                    ),
+                    _class='panel_header'
+                ),
+                self.result_table,
+                _class='panel'
+            )
+        )
+
+        self.result_barchart = div(_class='result_barchart')
+        resultDiv.add(
+            div(
+                div(
+                    div(
+                        div(('分布概览','Distribution Overview')[l.n], _class='panel_title'),
+                        p(
+                            ('用条形占比快速识别通过、失败、异常与阻塞情况。',
+                             'Compare pass, fail, abort, and blocked cases at a glance.')[l.n],
+                            _class='panel_desc'
+                        )
+                    ),
+                    _class='panel_header'
+                ),
+                self.result_barchart,
+                _class='panel'
+            )
+        )
+
+        logSection = self.main.add(div(_class='log_section'))
+        logSection.add(
+            div(
+                div(
+                    h2(('执行日志','Test Execution Log')[l.n]),
+                    p(
+                        ('按目录、文件与用例分层展开，便于定位失败现场。',
+                         'Grouped by folder, file, and case to help pinpoint failures quickly.')[l.n]
+                    )
+                ),
+                _class='log_header'
+            )
+        )
+        self.logDiv = logSection.add(div(_class='exec_log'))
 
         # 查看上一个和下一个错误的 
+        self.errorCounterEle = div(
+            ('无异常','No Errors')[l.n],
+            _class='menu-item menu-item-static',
+            id='error_counter',
+            **{
+                'data-empty-label': ('无异常','No Errors')[l.n],
+                'data-prefix-label': ('异常','Errors')[l.n],
+            }
+        )
         self.ev = div(
-                div('∧', _class = 'menu-item', onclick="previous_error()", title='上一个错误'), 
-                div('∨', _class = 'menu-item', onclick="next_error()", title='下一个错误'),
-                _class = 'error_jumper'
+                self.errorCounterEle,
+                div('∧', _class = 'menu-item error-nav', onclick="previous_error()", title=('上一个异常','Previous Error')[l.n]), 
+                div('∨', _class = 'menu-item error-nav', onclick="next_error()", title=('下一个异常','Next Error')[l.n]),
+                _class = 'error_jumper',
+                style='display:none;'
             )
 
         helpLink = ("http://www.byhy.net/tut/auto/hytest/01",'https://github.com/jcyrss/hytest/Documentation.md') [l.n]
+
+        displayModeEle = div(
+            ('详细模式','Detail Mode')[l.n],
+            _class='menu-item',
+            id='display_mode',
+            onclick="toggle_folder_all_cases()",
+            **{
+                'data-summary-label': ('概要模式','Summary Mode')[l.n],
+                'data-detail-label': ('详细模式','Detail Mode')[l.n],
+                'data-summary-title': ('点击切换到详细模式','Switch to detail mode')[l.n],
+                'data-detail-title': ('点击切换到概要模式','Switch to summary mode')[l.n],
+            }
+        )
          
         self.doc.body.add(div(
             div(('页首','Home')[l.n], _class = 'menu-item',
                 onclick='document.querySelector("body").scrollIntoView()'),
             div(('帮助','Help')[l.n], _class = 'menu-item', 
                 onclick=f'window.open("{helpLink}", "_blank"); '),
-            div(('Summary','Summary')[l.n],_class='menu-item', id='display_mode' ,onclick="toggle_folder_all_cases()"),
+            displayModeEle,
             self.ev,
             id='float_menu')
         )
@@ -465,84 +582,38 @@ class HtmlLogger:
         ret = stats.result
 
         errorNum = 0
-
-        trs = []        
-        
-        trs.append(tr(td(('hytest 版本','hytest version')[l.n]), td(version)))
-        trs.append(tr(td(('开始时间','Test Start Time')[l.n]), td(f'{execStartTime}')))
-        trs.append(tr(td(('结束时间','Test End Time')[l.n]), td(f'{execEndTime}')))
-
-        trs.append(tr(td(('耗时','Duration Of Testing')[l.n]), td(f'{stats.test_duration:.3f}' + (' 秒',' Seconds')[l.n])))
-
-        trs.append(tr(td(('预备执行用例数量','number of cases plan to run')[l.n]), td(f"{ret['case_count_to_run']}")))
-        trs.append(tr(td(('实际执用例行数量','number of cases actually run')[l.n]), td(f"{ret['case_count']}")))
-
-        trs.append(tr(td(('通过','passed')[l.n]), td(f"{ret['case_pass']}")))
-
-
         case_count_to_run = ret['case_count_to_run']
+        blocked_num = max(case_count_to_run - ret['case_pass'] - ret['case_fail'] - ret['case_abort'], 0)
 
-        num = ret['case_fail']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('失败','failed')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
-        
-        num = ret['case_abort']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('异常','exception aborted')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
+        def percentCalc(upper, lower):
+            if lower == 0:
+                return '0'
 
-        # 计算阻塞用例个数
-        blocked_num = case_count_to_run - ret['case_pass'] - ret['case_fail'] - ret['case_abort']
-        style = '' if blocked_num == 0 else 'color:red'
-        trs.append(tr(td(('阻塞','blocked')[l.n]), td(f"{blocked_num}", style=style)))
-        
-        num = ret['suite_setup_fail']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('套件初始化失败','suite setup failed')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
-        
-        num = ret['suite_teardown_fail']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('套件清除  失败','suite teardown failed')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
-        
-        num = ret['case_setup_fail']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('用例初始化失败','cases setup failed')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
-        
-        num = ret['case_teardown_fail']
-        style = '' if num == 0 else 'color:red'
-        trs.append(tr(td(('用例清除  失败','cases teardown failed')[l.n]), td(f"{num}", style=style)))
-        errorNum += num
+            percent = str(round(upper * 100 / lower, 1))
+            percent = percent[:-2] if percent.endswith('.0') else percent
+            return percent
 
-        self.ev['display'] = 'none' if errorNum==0 else 'block'
-
-        # 添加结果统计表
-        self.result_table.add(tbody(*trs))
-
-        # 添加 结果柱状图
-
-        def add_barchar_item(statName, percent, color):
-            if type(percent) == str:
-                barPercentStr = percent
-                percentStr ='-'
-
+        def add_barchar_item(statName, amount, percent, color):
+            if isinstance(percent, str):
+                percent_value = float(percent)
             else:
-                # 小于 1% 的， 都显示 1% 长度，否则就看不见了
-                barPercent = 1 if 0 < percent <= 1 else percent
+                percent_value = percent
 
-                barPercentStr = f'{barPercent}%'
-                percentStr = f'{percent}%'
+            barPercent = 1 if 0 < percent_value <= 1 else percent_value
+            barPercent = max(barPercent, 0)
+            percentStr = f'{percent_value}%'
 
             self.result_barchart.add(
                 div(
-                    span(statName),
+                    div(
+                        span(f'{statName} · {amount} {("个","")[l.n]}', _class='metric_name'),
+                        span(percentStr, _class='metric_percent'),
+                        _class='metric_row'
+                    ),
                     div(
                         div(
-                            "" , # 柱状里面不填写内容了，如果值为1.86%,背景色部分太短，由于颜色是白色，溢出到右边的空白背景，看不清
-                            style=f'width: {barPercentStr}; background-color: {color};',
+                            "",
+                            style=f'width: {barPercent}%; background-color: {color};',
                             _class="barchart_bar",
                         ),
                         _class="barchart_barbox"
@@ -551,48 +622,136 @@ class HtmlLogger:
                 )
             )
 
-        # add_barchar_item(
-        #     f"用例总数 ： {ret['case_count']} 个",
-        #     100,
-        #     '#2196f3')
+        execution_rate = percentCalc(ret['case_count'], case_count_to_run)
+        pass_rate = percentCalc(ret['case_pass'], case_count_to_run)
+        fail_rate = percentCalc(ret['case_fail'], case_count_to_run)
+        abort_rate = percentCalc(ret['case_abort'], case_count_to_run)
+        blocked_rate = percentCalc(blocked_num, case_count_to_run)
 
+        trs = []        
+        trs.append(self._table_row(('hytest 版本','hytest version')[l.n], version))
+        trs.append(self._table_row(('开始时间','Test Start Time')[l.n], f'{execStartTime}'))
+        trs.append(self._table_row(('结束时间','Test End Time')[l.n], f'{execEndTime}'))
+        trs.append(self._table_row(('耗时','Duration Of Testing')[l.n], f'{stats.test_duration:.3f}' + (' 秒',' Seconds')[l.n]))
+        trs.append(self._table_row(('预备执行用例数量','number of cases plan to run')[l.n], ret['case_count_to_run'], 'primary'))
+        trs.append(self._table_row(('实际执行用例数量','number of cases actually run')[l.n], ret['case_count'], 'primary'))
+        trs.append(self._table_row(('通过','passed')[l.n], ret['case_pass'], 'success'))
 
-        def percentCalc(upper,lower):
-            percent = str(round(upper * 100 / lower, 1))
-            percent = percent[:-2] if percent.endswith('.0') else percent
-            return percent
+        num = ret['case_fail']
+        trs.append(self._table_row(('失败','failed')[l.n], num, 'danger' if num else None))
+        errorNum += num
+        
+        num = ret['case_abort']
+        trs.append(self._table_row(('异常','exception aborted')[l.n], num, 'abort' if num else None))
+        errorNum += num
 
-        percent = percentCalc(ret['case_pass'], case_count_to_run)
+        trs.append(self._table_row(('阻塞','blocked')[l.n], blocked_num, 'warning' if blocked_num else None))
+        
+        num = ret['suite_setup_fail']
+        trs.append(self._table_row(('套件初始化失败','suite setup failed')[l.n], num, 'danger' if num else None))
+        errorNum += num
+        
+        num = ret['suite_teardown_fail']
+        trs.append(self._table_row(('套件清除失败','suite teardown failed')[l.n], num, 'danger' if num else None))
+        errorNum += num
+        
+        num = ret['case_setup_fail']
+        trs.append(self._table_row(('用例初始化失败','cases setup failed')[l.n], num, 'danger' if num else None))
+        errorNum += num
+        
+        num = ret['case_teardown_fail']
+        trs.append(self._table_row(('用例清除失败','cases teardown failed')[l.n], num, 'danger' if num else None))
+        errorNum += num
+
+        if errorNum == 0 and blocked_num == 0:
+            reportStatusText = ('全部通过','All Passed')[l.n]
+            reportStatusClass = 'status_badge status-success'
+        elif errorNum > 0:
+            reportStatusText = ('存在失败/异常','Issues Detected')[l.n]
+            reportStatusClass = 'status_badge status-danger'
+        else:
+            reportStatusText = ('存在阻塞','Blocked Cases')[l.n]
+            reportStatusClass = 'status_badge status-warning'
+
+        self.statusBadgeEle['class'] = reportStatusClass
+        self.statusBadgeEle.add(reportStatusText)
+
+        self.headerMetaEle.add(
+            self._meta_item(('开始时间','Started At')[l.n], execStartTime),
+            self._meta_item(('结束时间','Finished At')[l.n], execEndTime),
+            self._meta_item(('总耗时','Duration')[l.n], f'{stats.test_duration:.3f}' + (' 秒',' Seconds')[l.n]),
+            self._meta_item(('执行率','Execution Rate')[l.n], f'{execution_rate}%')
+        )
+
+        self.summaryCardsEle.add(
+            self._summary_card(
+                ('预备执行','Planned')[l.n],
+                ret['case_count_to_run'],
+                ('本次计划纳入执行的用例数','Cases included in this run.')[l.n],
+                'primary'
+            ),
+            self._summary_card(
+                ('实际执行','Executed')[l.n],
+                ret['case_count'],
+                f"{('执行率','Execution rate')[l.n]} {execution_rate}%",
+                'primary'
+            ),
+            self._summary_card(
+                ('通过','Passed')[l.n],
+                ret['case_pass'],
+                f"{('通过率','Pass rate')[l.n]} {pass_rate}%",
+                'success'
+            ),
+            self._summary_card(
+                ('失败','Failed')[l.n],
+                ret['case_fail'],
+                f"{('失败率','Failure rate')[l.n]} {fail_rate}%",
+                'danger'
+            ),
+            self._summary_card(
+                ('异常','Aborted')[l.n],
+                ret['case_abort'],
+                f"{('异常率','Abort rate')[l.n]} {abort_rate}%",
+                'abort'
+            ),
+            self._summary_card(
+                ('阻塞','Blocked')[l.n],
+                blocked_num,
+                f"{('阻塞率','Blocked rate')[l.n]} {blocked_rate}%",
+                'warning' if blocked_num else 'neutral'
+            )
+        )
+
+        self.ev['style'] = 'display:flex;' if errorNum else 'display:none;'
+
+        # 添加结果统计表
+        self.result_table.add(tbody(*trs))
+
+        # 添加 结果柱状图
         add_barchar_item(
-            f"{('用例通过','cases passed')[l.n]} {percent}% ： {ret['case_pass']} {('个','')[l.n]}",
-            float(percent),
+            ('用例通过','Cases Passed')[l.n],
+            ret['case_pass'],
+            pass_rate,
             '#04AA6D')
 
-        percent = percentCalc(ret['case_fail'], case_count_to_run)
         add_barchar_item(
-            f"{('用例失败','cases failed')[l.n]} {percent}% ： {ret['case_fail']} {('个','')[l.n]}",
-            float(percent),
+            ('用例失败','Cases Failed')[l.n],
+            ret['case_fail'],
+            fail_rate,
             '#bb4069')
 
-        percent = percentCalc(ret['case_abort'], case_count_to_run)
         add_barchar_item(
-            f"{('用例异常','cases exception aborted')[l.n]} {percent}% ： {ret['case_abort']} {('个','')[l.n]}",
-            float(percent),
+            ('用例异常','Cases Aborted')[l.n],
+            ret['case_abort'],
+            abort_rate,
             '#9c27b0')
 
 
-        percent = percentCalc(blocked_num, case_count_to_run)
         add_barchar_item(
-            f"{('用例阻塞','cases blocked')[l.n]} {percent}% ： {blocked_num} {('个','')[l.n]}",
-            float(percent),
+            ('用例阻塞','Cases Blocked')[l.n],
+            blocked_num,
+            blocked_rate,
             '#dcbdbd')
-
-        # st_fail = ret['suite_setup_fail'] + ret['case_setup_fail'] + ret['suite_teardown_fail'] + ret['case_teardown_fail']
-        # percent = '100%' if st_fail > 0 else '0%'
-        # add_barchar_item(
-        #     f"初始化/清除 失败  {st_fail} 次",
-        #     percent,
-        #     '#dcbdbd')
 
 
         # 产生文件
@@ -654,7 +813,7 @@ class HtmlLogger:
         self.curEle = self.logDiv.add(
             div(                
                 div(
-                    span(enterInfo,_class='label'),
+                    span(enterInfo),
                     span(name),
                     _class='enter_suite'
                 ),         
@@ -732,16 +891,16 @@ class HtmlLogger:
     def case_result(self, case):
         if case.execRet == 'pass':
             self.curCaseEle['class'] += ' pass'
-            self.curCaseLableEle += ' ✅'
+            self.curCaseLableEle += f" {('通过','PASS')[l.n]}"
 
         elif case.execRet == 'fail':
             self.curCaseEle['class'] += ' fail'
-            self.curCaseLableEle += ' ❌'
+            self.curCaseLableEle += f" {('失败','FAIL')[l.n]}"
             self.curEle += div(f'{case.stacktrace}', _class='info error-info')
             
         elif case.execRet == 'abort':                
             self.curCaseEle['class'] += ' abort'
-            self.curCaseLableEle += ' 🚫'
+            self.curCaseLableEle += f" {('异常','ABORT')[l.n]}"
 
             self.curEle += div(f'{case.stacktrace}', _class='info abort-info')
 
@@ -759,7 +918,7 @@ class HtmlLogger:
             
             # folder_body 是折叠区 内容部分，可以隐藏
             suiteHeaderEle = div(
-                span(('套件初始化','Suite Setup')[l.n],_class='label'),
+                span(('套件初始化','Suite Setup')[l.n]),
                 span(''),  #span(name),
                 span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
                 self.setupDurationSpan,
@@ -817,7 +976,7 @@ class HtmlLogger:
                 self.curEle = self.logDiv.add(
                     div(                
                         div(
-                            span(('离开目录','Leave Folder')[l.n] ,_class='label'),
+                            span(('离开目录','Leave Folder')[l.n] ),
                             span(name),
                             _class='leave_suite'
                         ),         
@@ -828,7 +987,7 @@ class HtmlLogger:
             
             # folder_body 是折叠区 内容部分，可以隐藏
             suiteHeaderEle = div(
-                span(('套件清除','Suite Teardown')[l.n],_class='label'),
+                span(('套件清除','Suite Teardown')[l.n]),
                 span(''),  #span(name),
                 span(datetime.now().strftime('%m-%d %H:%M:%S'), _class='executetime'),
                 self.teardownDurationSpan,
@@ -889,7 +1048,7 @@ class HtmlLogger:
         if self.curEle is None:
             return
 
-        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} ✅', _class='tag'), 
+        self.curEle += div(span(f'{("检查点通过","Checkpoint PASS")[l.n]}', _class='tag'), 
                            span(desc, _class='paragraph' ), 
                            _class='checkpoint_pass')
         
@@ -897,7 +1056,7 @@ class HtmlLogger:
         if self.curEle is None:
             return
 
-        self.curEle += div(span(f'{("检查点","CheckPoint")[l.n]} ❌', _class='tag'), 
+        self.curEle += div(span(f'{("检查点失败","Checkpoint FAIL")[l.n]}', _class='tag'), 
                            span(f"{desc}\n\n{compaireInfo}" , _class='paragraph' ), 
                            _class='checkpoint_fail')
 

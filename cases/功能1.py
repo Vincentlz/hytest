@@ -86,6 +86,7 @@ class c00002:
     name = '添加订单 - API-0002'
 
     def teststeps(self):
+        INFO('添加订单')
         STEP(1, '添加一个客户不存在的订单')
         CHECK_POINT('检查API接口返回值', True)
 
