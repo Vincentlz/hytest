@@ -537,7 +537,7 @@ class HtmlLogger:
                 style='display:none;'
             )
 
-        helpLink = ("http://www.byhy.net/tut/auto/hytest/01",'https://github.com/jcyrss/hytest/Documentation.md') [l.n]
+        helpLink = ("https://www.byhy.net/auto/pyatframework/hytest-01/",'https://github.com/jcyrss/hytest/Documentation.md') [l.n]
 
         displayModeEle = div(
             ('详细模式','Detail Mode')[l.n],

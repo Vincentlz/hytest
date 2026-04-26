@@ -25,7 +25,7 @@ pip install hytest
 [User Guide](https://github.com/jcyrss/hytest/blob/main/Documentation.md)
 
 
-[中文教程链接](https://www.byhy.net/tut/auto/hytest/01/)
+[中文教程链接](https://www.byhy.net/auto/pyatframework/hytest-01/)
 
 
 ## Screenshots
